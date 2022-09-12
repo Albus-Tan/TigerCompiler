@@ -29,5 +29,7 @@ _deps
 
 # idea
 .idea
-
+# Mac
+.DS_Store
 *.log
+
