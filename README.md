@@ -103,7 +103,7 @@ git commit -m "A message"
 git push
 ```
 
-**Note, Each experiment has a separate branch, such as `lab1`,When you finish the `lab1`, you must submit the code to the `lab1` branch. Otherwise, you won't get a full score in your lab.**
+**Note, each experiment has a separate branch, such as `lab1`. When you finish the `lab1`, you must submit the code to the `lab1` branch. Otherwise, you won't get a full score in your lab.**
 
 ## Formatting Your Codes
 
