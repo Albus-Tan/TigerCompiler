@@ -95,12 +95,6 @@ make gradeall
 
 ## Submitting Your Labs
 
-**Run `make register` and input your name in English and student ID.** You can
-check it in the `.info` file generated later.
-
-We are using CI in GitLab to grade your labs automatically. **So please make
-sure the `Enable shared runners for this project`
-under `Your GitLab repo - Settings - CI/CD` is turned on**.
 
 Push your code to your GitLab repo
 ```bash
@@ -109,8 +103,7 @@ git commit -m "A message"
 git push
 ```
 
-**Wait for a while and check the latest pipeline (`Your GitLab repo - CI/CD -
-Pipelines`) passed. Otherwise, you won't get a full score in your lab.**
+**Note, Each experiment has a separate branch, such as `lab1`,When you finish the `lab1`, you must submit the code to the `lab1` branch. Otherwise, you won't get a full score in your lab.**
 
 ## Formatting Your Codes
 
