@@ -74,7 +74,7 @@ add_custom_target(
 # lab 1
 add_executable(test_slp ${SLP_SOURCES})
 
-lab 2
+# lab 2
 add_executable(test_lex "src/tiger/main/test_lex.cc" ${TIGER_SOURCES} ${TIGER_LEX_PARSE_SOURCES})
 add_dependencies(test_lex lex_parse_sources)
 
