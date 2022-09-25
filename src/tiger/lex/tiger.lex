@@ -68,6 +68,7 @@
 
  /* string */
  \" {adjust(); begin(StartCondition__::STR); string_buf_.clear(); }
+
  <STR>{
     \" {adjustStr(); setMatched(string_buf_); begin(StartCondition__::INITIAL); return Parser::STRING;}
     \\n {adjustStr(); string_buf_ += "\n";}
