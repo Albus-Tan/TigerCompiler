@@ -79,9 +79,9 @@ add_executable(test_lex "src/tiger/main/test_lex.cc" ${TIGER_SOURCES} ${TIGER_LE
 add_dependencies(test_lex lex_parse_sources)
 
 # lab 3
-# add_executable(test_parse "src/tiger/main/test_parse.cc" ${TIGER_SOURCES} ${TIGER_LEX_PARSE_SOURCES})
-# add_dependencies(test_parse lex_parse_sources)
-# 
+add_executable(test_parse "src/tiger/main/test_parse.cc" ${TIGER_SOURCES} ${TIGER_LEX_PARSE_SOURCES})
+add_dependencies(test_parse lex_parse_sources)
+
 # # lab 4
 # add_executable(test_semant "src/tiger/main/test_semant.cc" ${TIGER_SOURCES} ${TIGER_LEX_PARSE_SOURCES})
 # add_dependencies(test_semant lex_parse_sources)
