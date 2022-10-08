@@ -31,6 +31,8 @@ class DecList;
 class EFieldList;
 
 enum Oper {
+  AND_OP,
+  OR_OP,
   PLUS_OP,
   MINUS_OP,
   TIMES_OP,
@@ -406,7 +408,7 @@ public:
   FieldList() = default;
   explicit FieldList(Field *field) : field_list_({field}) { assert(field); }
 
-  FieldList *Append(Field *field) {
+  FieldList *Prepend(Field *field) {
     field_list_.push_front(field);
     return this;
   }
@@ -424,7 +426,7 @@ public:
   ExpList() = default;
   explicit ExpList(Exp *exp) : exp_list_({exp}) { assert(exp); }
 
-  ExpList *Append(Exp *exp) {
+  ExpList *Prepend(Exp *exp) {
     exp_list_.push_front(exp);
     return this;
   }
@@ -458,7 +460,7 @@ public:
     assert(fun_dec);
   }
 
-  FunDecList *Append(FunDec *fun_dec) {
+  FunDecList *Prepend(FunDec *fun_dec) {
     fun_dec_list_.push_front(fun_dec);
     return this;
   }
@@ -476,7 +478,7 @@ public:
   DecList() = default;
   explicit DecList(Dec *dec) : dec_list_({dec}) { assert(dec); }
 
-  DecList *Append(Dec *dec) {
+  DecList *Prepend(Dec *dec) {
     dec_list_.push_front(dec);
     return this;
   }
@@ -502,7 +504,7 @@ public:
   explicit NameAndTyList(NameAndTy *name_and_ty)
       : name_and_ty_list_({name_and_ty}) {}
 
-  NameAndTyList *Append(NameAndTy *name_and_ty) {
+  NameAndTyList *Prepend(NameAndTy *name_and_ty) {
     name_and_ty_list_.push_front(name_and_ty);
     return this;
   }
@@ -535,7 +537,7 @@ public:
   EFieldList() = default;
   explicit EFieldList(EField *efield) : efield_list_({efield}) {}
 
-  EFieldList *Append(EField *efield) {
+  EFieldList *Prepend(EField *efield) {
     efield_list_.push_front(efield);
     return this;
   }

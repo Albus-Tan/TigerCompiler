@@ -89,7 +89,7 @@
                      stringExp( O),
                      stringExp( .)),
                     expList())),
-                  TRUE),
+                  FALSE),
                  expList(
                   callExp(print,
                    expList(
@@ -97,7 +97,7 @@
 ),
                     expList())),
                   expList()))),
-               TRUE),
+               FALSE),
               expList(
                callExp(print,
                 expList(
@@ -110,7 +110,7 @@
              fieldList(
               field(c,
                int,
-               TRUE),
+               FALSE),
               fieldList()),
              iffExp(
               opExp(
@@ -251,7 +251,7 @@
                              simpleVar(c)))),
                           intExp(0)),
                          expList())))))))))),
-               TRUE))),
+               FALSE))),
             fundecList()))),
          decList()))))))),
   seqExp(

@@ -22,14 +22,14 @@
         fieldList(
          field(any,
           any,
-          TRUE),
+          FALSE),
          fieldList()),
         int,
         letExp(
          decList(
           varDec(i,
            intExp(0),
-           TRUE),
+           FALSE),
           decList(
            functionDec(
             fundecList(
@@ -37,7 +37,7 @@
               fieldList(
                field(s,
                 string,
-                TRUE),
+                FALSE),
                fieldList()),
               int,
               opExp(
@@ -170,7 +170,7 @@
                efield(any,
                 intExp(0)),
                efieldList())),
-             TRUE),
+             FALSE),
             decList(
              varDec(i,
               callExp(readint,
@@ -178,7 +178,7 @@
                 varExp(
                  simpleVar(any)),
                 expList())),
-              TRUE),
+              FALSE),
              decList())),
            seqExp(
             expList(
@@ -204,11 +204,11 @@
            fieldList(
             field(a,
              list,
-             TRUE),
+             FALSE),
             fieldList(
              field(b,
               list,
-              TRUE),
+              FALSE),
              fieldList())),
            list,
            iffExp(
@@ -283,7 +283,7 @@
             fieldList(
              field(i,
               int,
-              TRUE),
+              FALSE),
              fieldList()),
             letExp(
              decList(
@@ -293,7 +293,7 @@
                  fieldList(
                   field(i,
                    int,
-                   TRUE),
+                   FALSE),
                   fieldList()),
                  iffExp(
                   opExp(
@@ -384,7 +384,7 @@
              fieldList(
               field(l,
                list,
-               TRUE),
+               FALSE),
               fieldList()),
              iffExp(
               opExp(
@@ -425,7 +425,7 @@
         varDec(list1,
          callExp(readlist,
           expList()),
-         TRUE),
+         FALSE),
         decList(
          varDec(list2,
           seqExp(
@@ -438,7 +438,7 @@
              callExp(readlist,
               expList()),
              expList()))),
-          TRUE),
+          FALSE),
          decList()))))))),
   seqExp(
    expList(

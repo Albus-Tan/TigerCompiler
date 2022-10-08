@@ -10,8 +10,8 @@ inline void Indent(FILE *out, int d) {
 
 inline void PrintOper(FILE *out, absyn::Oper d) {
   static std::array<std::string_view, absyn::ABSYN_OPER_COUNT> str_oper = {
-      "PLUS",     "MINUS",    "TIMES",  "DIVIDE", "EQUAL",
-      "NOTEQUAL", "LESSTHAN", "LESSEQ", "GREAT",  "GREATEQ"};
+      "AND",   "OR",       "PLUS",     "MINUS",  "TIMES",  "DIVIDE",
+      "EQUAL", "NOTEQUAL", "LESSTHAN", "LESSEQ", "GREAT",  "GREATEQ"};
   fprintf(out, "%s", str_oper[d].data());
 }
 
