@@ -68,11 +68,15 @@
 %%
 program:  exp  {absyn_tree_ = std::make_unique<absyn::AbsynTree>($1);};
 
+ /* TODO: Put your lab3 code here */
+
+/* Left Value */
 lvalue:  ID  {$$ = new absyn::SimpleVar(scanner_.GetTokPos(), $1);}
   |  oneormore  {$$ = $1;}
   ;
-
- /* TODO: Put your lab3 code here */
+oneormore:  lvalue DOT ID  {$$ = new absyn::FieldVar(scanner_.GetTokPos(), $1, $3);}
+  |  lvalue LBRACK exp RBRACK  {$$ = new absyn::SubscriptVar(scanner_.GetTokPos(), $1, $3);}
+  ;
 
 /* Expressions */
 
@@ -93,7 +97,7 @@ exp:  STRING  {$$ = new absyn::StringExp(scanner_.GetTokPos(), $1);};
 /* id() */
 exp :  ID LPAREN RPAREN {$$ = new absyn::CallExp(scanner_.GetTokPos(), $1, new absyn::ExpList());};
 /* id(exp{,exp}) */
-
+exp :  ID LPAREN nonemptyactuals RPAREN {$$ = new absyn::CallExp(scanner_.GetTokPos(), $1, $3);};
 
 /* OpExp */
 exp :  exp AND exp  {$$ = new absyn::OpExp(scanner_.GetTokPos(), absyn::AND_OP, $1, $3);};
@@ -160,3 +164,39 @@ expseq :  sequencing_exps {$$ = new absyn::SeqExp(scanner_.GetTokPos(), $1);};
 sequencing_exps :  exp {$$ = new absyn::ExpList($1);};
 /* exp;exp;...exp */
 sequencing_exps :  exp SEMICOLON sequencing_exps {$$ = $3; $$->Prepend($1);};
+
+/* nonemptyactuals */
+/* exp */
+nonemptyactuals :  exp {$$ = new absyn::ExpList($1);};
+/* exp{,exp} */
+nonemptyactuals :  exp COMMA nonemptyactuals {$$ = $3; $$->Prepend($1);};
+
+/* Declaration */
+/* decs */
+decs :  decs_nonempty {$$ = $1;};
+/* decs_nonempty */
+decs_nonempty :  decs_nonempty_s {$$ = new absyn::DecList($1);}
+  |  decs_nonempty_s decs_nonempty {$$ = $2; $$->Prepend($1);}
+  ;
+/* dec */
+decs_nonempty_s :  tydec {$$ = new absyn::TypeDec(scanner_.GetTokPos(), $1);}
+  |  vardec {$$ = $1;}
+  |  fundec {$$ = new absyn::FunctionDec(scanner_.GetTokPos(), $1);}
+  ;
+/* tydec */
+tydec :  tydec_one {$$ = new absyn::NameAndTyList($1);}
+  |  tydec_one tydec {$$ = $2; $$->Prepend($1);}
+  ;
+/* type type-id = ty */
+tydec_one :  TYPE ID EQ ty {$$ = new absyn::NameAndTy($2, $4);};
+
+/* ty */
+// TODO
+
+/* vardec */
+vardec :  VAR ID ASSIGN exp {$$ = new absyn::VarDec(scanner_.GetTokPos(), $2, nullptr, $4);}
+  |  VAR ID COLON ID ASSIGN exp {$$ = new absyn::VarDec(scanner_.GetTokPos(), $2, $4, $6);}
+  ;
+
+/* fundec */
+
