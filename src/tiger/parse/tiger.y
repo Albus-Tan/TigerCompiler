@@ -71,11 +71,10 @@ program:  exp  {absyn_tree_ = std::make_unique<absyn::AbsynTree>($1);};
  /* TODO: Put your lab3 code here */
 
 /* Left Value */
-lvalue:  ID  {$$ = new absyn::SimpleVar(scanner_.GetTokPos(), $1);}
-  |  oneormore  {$$ = $1;}
-  ;
-oneormore:  lvalue DOT ID  {$$ = new absyn::FieldVar(scanner_.GetTokPos(), $1, $3);}
+lvalue:  lvalue DOT ID  {$$ = new absyn::FieldVar(scanner_.GetTokPos(), $1, $3);}
+  |  ID LBRACK exp RBRACK  {$$ = new absyn::SubscriptVar(scanner_.GetTokPos(), new absyn::SimpleVar(scanner_.GetTokPos(), $1), $3);}
   |  lvalue LBRACK exp RBRACK  {$$ = new absyn::SubscriptVar(scanner_.GetTokPos(), $1, $3);}
+  |  ID  {$$ = new absyn::SimpleVar(scanner_.GetTokPos(), $1);}
   ;
 
 /* Expressions */
