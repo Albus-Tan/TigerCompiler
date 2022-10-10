@@ -117,7 +117,6 @@ exp :  MINUS exp %prec UMINUS {$$ = new absyn::OpExp(scanner_.GetTokPos(), absyn
 
 /* RecordExp */
 /* type-id{} */
-exp :  ID LBRACE RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, new absyn::EFieldList());};
 /* type-id{id=exp{,id=exp}} */
 exp :  ID LBRACE rec RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, $3);};
 
@@ -174,7 +173,7 @@ nonemptyactuals :  exp COMMA nonemptyactuals {$$ = $3; $$->Prepend($1);};
 /* Declaration */
 /* decs */
 decs :  decs_nonempty {$$ = $1;}
-  |  // empty //TODO
+  |
   ;
 /* decs_nonempty */
 decs_nonempty :  decs_nonempty_s {$$ = new absyn::DecList($1);}
@@ -223,3 +222,12 @@ ty :  ID {$$ = new absyn::NameTy(scanner_.GetTokPos(), $1);}
   |  LBRACE tyfields RBRACE {$$ = new absyn::RecordTy(scanner_.GetTokPos(), $2);}
   |  ARRAY OF ID {$$ = new absyn::ArrayTy(scanner_.GetTokPos(), $3);}
   ;
+
+/* rec */
+rec :  rec_nonempty {$$ = $1;}
+  |  {$$ = new absyn::EFieldList();}
+  ;
+rec_nonempty :  rec_one {$$ = new absyn::EFieldList($1);}
+  |  rec_one COMMA rec_nonempty {$$ = $3; $$->Prepend($1);}
+  ;
+rec_one :  ID EQ exp {$$ = new absyn::EField($1, $3);};
