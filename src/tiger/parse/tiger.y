@@ -214,7 +214,7 @@ tyfields_nonempty :  tyfield {$$ = new absyn::FieldList($1);}
   |  tyfield COMMA tyfields_nonempty {$$ = $3; $$->Prepend($1);}
   ;
 /* id : type-id */
-tyfield :  ID COLON ID {$$ = new absyn::Field(scanner_.GetTokPos(), $1, $3);}
+tyfield :  ID COLON ID {$$ = new absyn::Field(scanner_.GetTokPos(), $1, $3);};
 
 /* Types */
 /* ty */
