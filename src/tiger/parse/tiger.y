@@ -71,6 +71,7 @@ program:  exp  {absyn_tree_ = std::make_unique<absyn::AbsynTree>($1);};
  /* TODO: Put your lab3 code here */
 
 /* Left Value */
+/* The order of the rules matter !!! */
 lvalue:  lvalue DOT ID  {$$ = new absyn::FieldVar(scanner_.GetTokPos(), $1, $3);}
   |  ID LBRACK exp RBRACK  {$$ = new absyn::SubscriptVar(scanner_.GetTokPos(), new absyn::SimpleVar(scanner_.GetTokPos(), $1), $3);}
   |  lvalue LBRACK exp RBRACK  {$$ = new absyn::SubscriptVar(scanner_.GetTokPos(), $1, $3);}
