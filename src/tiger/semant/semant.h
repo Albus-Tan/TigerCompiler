@@ -33,6 +33,14 @@ public:
     return std::move(errormsg_);
   }
 
+  /**
+   * Transfer the ownership of absyn tree to outer scope
+   * @return unique pointer to the absyn tree
+   */
+  std::unique_ptr<absyn::AbsynTree> TransferAbsynTree() {
+    return std::move(absyn_tree_);
+  }
+
 private:
   std::unique_ptr<absyn::AbsynTree> absyn_tree_;
   std::unique_ptr<err::ErrorMsg> errormsg_;

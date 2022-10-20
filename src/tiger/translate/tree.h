@@ -69,6 +69,12 @@ public:
   virtual ~Stm() = default;
 
   virtual void Print(FILE *out, int d) const = 0;
+  virtual Stm *Canon() = 0;
+  virtual void Munch(assem::InstrList &instr_list, std::string_view fs) = 0;
+  // Used for Canon
+  bool IsNop();
+  static Stm *Seq(Stm *x, Stm *y);
+  static bool Commute(tree::Stm *x, tree::Exp *y);
 };
 
 class SeqStm : public Stm {
@@ -79,6 +85,8 @@ public:
   ~SeqStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class LabelStm : public Stm {
@@ -89,6 +97,8 @@ public:
   ~LabelStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class JumpStm : public Stm {
@@ -101,6 +111,8 @@ public:
   ~JumpStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class CjumpStm : public Stm {
@@ -116,6 +128,8 @@ public:
   ~CjumpStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class MoveStm : public Stm {
@@ -126,6 +140,8 @@ public:
   ~MoveStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class ExpStm : public Stm {
@@ -136,6 +152,8 @@ public:
   ~ExpStm() override;
 
   void Print(FILE *out, int d) const override;
+  Stm *Canon() override;
+  void Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 /**
@@ -147,6 +165,8 @@ public:
   virtual ~Exp() = default;
 
   virtual void Print(FILE *out, int d) const = 0;
+  virtual canon::StmAndExp Canon() = 0;
+  virtual temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) = 0;
 };
 
 class BinopExp : public Exp {
@@ -159,6 +179,8 @@ public:
   ~BinopExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class MemExp : public Exp {
@@ -169,6 +191,8 @@ public:
   ~MemExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class TempExp : public Exp {
@@ -179,6 +203,8 @@ public:
   ~TempExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class EseqExp : public Exp {
@@ -190,6 +216,8 @@ public:
   ~EseqExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class NameExp : public Exp {
@@ -200,6 +228,8 @@ public:
   ~NameExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class ConstExp : public Exp {
@@ -210,6 +240,8 @@ public:
   ~ConstExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class CallExp : public Exp {
@@ -221,6 +253,8 @@ public:
   ~CallExp() override;
 
   void Print(FILE *out, int d) const override;
+  canon::StmAndExp Canon() override;
+  temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
 class ExpList {
@@ -232,10 +266,28 @@ public:
   void Insert(Exp *exp) { exp_list_.push_front(exp); }
   std::list<Exp *> &GetNonConstList() { return exp_list_; }
   const std::list<Exp *> &GetList() { return exp_list_; }
+  temp::TempList *MunchArgs(assem::InstrList &instr_list, std::string_view fs);
 
 private:
   std::list<Exp *> exp_list_;
 };
+
+class StmList {
+  friend class canon::Canon;
+
+public:
+  StmList() = default;
+
+  const std::list<Stm *> &GetList() { return stm_list_; }
+  void Linear(Stm *stm);
+  void Print(FILE *out) const;
+
+private:
+  std::list<Stm *> stm_list_;
+};
+
+RelOp NotRel(RelOp);  // a op b == not(a NotRel(op) b)
+RelOp Commute(RelOp); // a op b == b Commute(op) a
 
 } // namespace tree
 

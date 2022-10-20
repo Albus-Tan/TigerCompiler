@@ -5,6 +5,7 @@
 #include "tiger/output/output.h"
 #include "tiger/parse/parser.h"
 #include "tiger/translate/translate.h"
+#include "tiger/semant/semant.h"
 
 frame::RegManager *reg_manager;
 frame::Frags *frags;
@@ -35,7 +36,16 @@ int main(int argc, char **argv) {
     }
 
     {
-      // Lab 6: escape analysis
+      // Lab 4: semantic analysis
+      TigerLog("-------====Semantic analysis=====-----\n");
+      sem::ProgSem prog_sem(std::move(absyn_tree), std::move(errormsg));
+      prog_sem.SemAnalyze();
+      absyn_tree = prog_sem.TransferAbsynTree();
+      errormsg = prog_sem.TransferErrormsg();
+    }
+
+    {
+      // Lab 5: escape analysis
       TigerLog("-------====Escape analysis=====-----\n");
       esc::EscFinder esc_finder(std::move(absyn_tree));
       esc_finder.FindEscape();
