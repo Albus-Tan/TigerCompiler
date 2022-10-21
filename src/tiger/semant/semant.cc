@@ -16,13 +16,12 @@ type::Ty *SimpleVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   } else {
     errormsg->Error(pos_, "undefined variable %s", sym_->Name().data());
   }
-  return type::IntTy::Instance();
+  return type::NilTy::Instance();
 
 }
 
 type::Ty *FieldVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
 
   // check if var (lvalue) is record
   type::Ty *type = var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
@@ -79,7 +78,6 @@ type::Ty *StringExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *CallExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                               int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   // check if function is defined
   env::EnvEntry *entry = venv->Look(func_);
   if(entry && typeid(*entry) == typeid(env::FunEntry)){
@@ -119,7 +117,7 @@ type::Ty *CallExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *OpExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                             int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
+
   type::Ty *left_ty = left_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   type::Ty *right_ty = right_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
 
@@ -147,7 +145,6 @@ type::Ty *OpExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *RecordExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 int labelcount, err::ErrorMsg *errormsg) const {
 
-  // TODO: BUG with test22
   // check if record type is defined
   type::Ty *type = tenv->Look(typ_);
   if(type && typeid(*(type->ActualTy())) == typeid(type::RecordTy)){
@@ -186,7 +183,6 @@ type::Ty *RecordExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *SeqExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                              int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   type::TyList *tyList = new type::TyList();
   for (absyn::Exp *exp : seq_->GetList()) {
     type::Ty *ty = exp->SemAnalyze(venv, tenv, labelcount, errormsg);
@@ -198,7 +194,7 @@ type::Ty *SeqExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *AssignExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
+
   type::Ty *varTy = var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   type::Ty *expTy = exp_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   // check if var and exp has the same type
@@ -247,10 +243,8 @@ type::Ty *IfExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   test_->SemAnalyze(venv, tenv, labelcount, errormsg);
   // check if body of while have no value
-  // TODO change labelcount
   type::Ty *bodyTy = body_->SemAnalyze(venv, tenv, labelcount + 1, errormsg);
   if (!bodyTy->IsSameType(type::VoidTy::Instance())) {
     errormsg->Error(pos_, "while body must produce no value");
@@ -260,7 +254,6 @@ type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *ForExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                              int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   // add id (readonly) to venv
   venv->BeginScope();
   venv->Enter(var_, new env::VarEntry(type::IntTy::Instance(),true));
@@ -274,7 +267,6 @@ type::Ty *ForExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   }
 
   // check if body produce value
-  // TODO change labelcount
   type::Ty *bodyTy = body_->SemAnalyze(venv, tenv, labelcount + 1, errormsg);
   if (!bodyTy->IsSameType(type::VoidTy::Instance())) {
     errormsg->Error(pos_, "for body should produce no value");
@@ -288,10 +280,9 @@ type::Ty *BreakExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
   // check if break is out of while or for exp
   if (labelcount == 0) {
-    errormsg->Error(pos_, "break is not inside while or for loop");
+    errormsg->Error(pos_, "break is not inside any loop");
   }
   return type::VoidTy::Instance();
-  /* TODO: Put your lab4 code here */
 }
 
 type::Ty *LetExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -315,14 +306,13 @@ type::Ty *LetExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 type::Ty *ArrayExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   // check if array type is defined
   type::Ty *type = tenv->Look(typ_);
   if (type && typeid(*(type->ActualTy())) == typeid(type::ArrayTy)) {
 
     // check if size is int
-    type::Ty *sizeTy = size_->SemAnalyze(venv, tenv, labelcount, errormsg);
-    if(typeid(*sizeTy)!=typeid(type::IntTy)){
+    type::Ty *size_ty = size_->SemAnalyze(venv, tenv, labelcount, errormsg);
+    if(typeid(*size_ty)!=typeid(type::IntTy)){
       errormsg->Error(pos_, "size of array should be int");
       return type::VoidTy::Instance();
     }
@@ -350,7 +340,6 @@ type::Ty *VoidExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 
 void FunctionDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                              int labelcount, err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab4 code here */
   // For FunctionDec Node there are two passes for its children nodes
 
   // First pass
@@ -359,6 +348,18 @@ void FunctionDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   for(absyn::FunDec *function : functions_->GetList()){
     type::Ty *result_ty = function->result_ ? tenv->Look(function->result_) : type::VoidTy::Instance();
     type::TyList *formals_ty = function->params_->MakeFormalTyList(tenv, errormsg);
+
+    // check if two functions have the same name
+    // check only in this declaration list not in environment because
+    // only two functions with the same name in the same (consecutive) batch of
+    // mutually recursive types is illegal
+    for (absyn::FunDec *anotherFunction : functions_->GetList()) {
+      if (function != anotherFunction && function->name_ == anotherFunction->name_) {
+        errormsg->Error(pos_, "two functions have the same name");
+        return;
+      }
+    }
+
     venv->Enter(function->name_, new env::FunEntry(formals_ty, result_ty));
   }
 
@@ -410,16 +411,21 @@ void VarDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
       errormsg->Error(init_->pos_, "type mismatch");
       return;
     }
+
+    venv->Enter(var_, new env::VarEntry(type_id));
+
   } else {
     // var x := exp
     // if the type of exp is NilTy, must have type_id
-    if(init_ty->ActualTy()->IsSameType(type::NilTy::Instance())){
-      errormsg->Error(pos_, "same type required");
+    if(init_ty->ActualTy()->IsSameType(type::NilTy::Instance()) &&
+        typeid(*(init_ty->ActualTy())) != typeid(type::RecordTy)){
+      errormsg->Error(pos_, "init should not be nil without type specified");
       return;
     }
+    venv->Enter(var_, new env::VarEntry(init_ty->ActualTy()));
   }
 
-  venv->Enter(var_, new env::VarEntry(init_ty));
+
 }
 
 void TypeDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
@@ -439,20 +445,38 @@ void TypeDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
     tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
   }
 
-  // check if type declarations form illegal cycle
   for(NameAndTy* type : types_->GetList()){
     // find name_ in tenv
     type::NameTy *name_ty = static_cast<type::NameTy *>(tenv->Look(type->name_));
+
     // modify the ty_ field of the type::NameTy class in the tenv for which is NULL now
     name_ty->ty_ = type->ty_->SemAnalyze(tenv, errormsg);
+
     // doesn't get type
     if(!name_ty->ty_){
-      errormsg->Error(pos_, "illegal type cycle");
+      errormsg->Error(pos_, "undefined type %s", type->name_);
       break;
     }
+
+    // check if type declarations form illegal cycle from current one
+    type::Ty *tmp = tenv->Look(type->name_), *next, *start = tmp;
+    while(tmp){
+
+      // break if not a name type
+      if(typeid(*tmp) != typeid(type::NameTy)) break;
+
+      next = (static_cast<type::NameTy *>(tmp))->ty_;
+      if(next == start){
+        errormsg->Error(pos_, "illegal type cycle");
+        return;
+      }
+
+      tmp = next;
+    }
+
+
   }
 
-  // TODO: test 16 illegal type circle
 }
 
 type::Ty *NameTy::SemAnalyze(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
