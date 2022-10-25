@@ -31,7 +31,7 @@ namespace frame {
 void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
   std::unique_ptr<canon::Traces> traces;
   std::unique_ptr<cg::AssemInstr> assem_instr;
-//   std::unique_ptr<ra::Result> allocation;
+  std::unique_ptr<ra::Result> allocation;
 
   // When generating proc fragment, do not output string assembly
   if (phase != Proc)
@@ -75,15 +75,15 @@ void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
 
   assem::InstrList *il = assem_instr.get()->GetInstrList();
   
-//   if (need_ra) {
-//     // Lab 6: register allocation
-//     TigerLog("----====Register allocate====-----\n");
-//     ra::RegAllocator reg_allocator(frame_, std::move(assem_instr));
-//     reg_allocator.RegAlloc();
-//     allocation = reg_allocator.TransferResult();
-//     il = allocation->il_;
-//     color = temp::Map::LayerMap(reg_manager->temp_map_, allocation->coloring_);
-//   }
+  if (need_ra) {
+    // Lab 6: register allocation
+    TigerLog("----====Register allocate====-----\n");
+    ra::RegAllocator reg_allocator(frame_, std::move(assem_instr));
+    reg_allocator.RegAlloc();
+    allocation = reg_allocator.TransferResult();
+    il = allocation->il_;
+    color = temp::Map::LayerMap(reg_manager->temp_map_, allocation->coloring_);
+  }
 
   TigerLog("-------====Output assembly for %s=====-----\n",
            frame_->name_->Name().data());
