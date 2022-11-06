@@ -8,12 +8,10 @@ void EscFinder::FindEscape() { absyn_tree_->Traverse(env_.get()); }
 namespace absyn {
 
 void AbsynTree::Traverse(esc::EscEnvPtr env) {
-  /* TODO: Put your lab5 code here */
   root_->Traverse(env, 1);
 }
 
 void SimpleVar::Traverse(esc::EscEnvPtr env, int depth) {
-  /* TODO: Put your lab5 code here */
   auto entry = env->Look(sym_);
   if(depth > entry->depth_){
     // if using sym_ in place (depth) deeper than sym_ declared (entry->depth_)
@@ -111,7 +109,6 @@ void VoidExp::Traverse(esc::EscEnvPtr env, int depth) {
 }
 
 void FunctionDec::Traverse(esc::EscEnvPtr env, int depth) {
-  /* TODO: Put your lab5 code here */
   for(auto function : functions_->GetList()){
     env->BeginScope();
     for(auto param : function->params_->GetList()){

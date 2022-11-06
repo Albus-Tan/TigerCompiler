@@ -48,14 +48,21 @@ public:
 
   explicit ExExp(tree::Exp *exp) : exp_(exp) {}
 
-  [[nodiscard]] tree::Exp *UnEx() override { 
+  [[nodiscard]] tree::Exp *UnEx() override {
     /* TODO: Put your lab5 code here */
+    return exp_;
   }
   [[nodiscard]] tree::Stm *UnNx() override {
     /* TODO: Put your lab5 code here */
+    return new tree::ExpStm(exp_);
   }
   [[nodiscard]] Cx UnCx(err::ErrorMsg *errormsg) override {
     /* TODO: Put your lab5 code here */
+    tree::CjumpStm *stm = new tree::CjumpStm(
+        tree::NE_OP, exp_, new tree::ConstExp(0), nullptr, nullptr);
+    std::list<temp::Label **> true_patch_list {&stm->true_label_};
+    std::list<temp::Label **> false_patch_list {&stm->false_label_};
+    return {PatchList(true_patch_list), PatchList(false_patch_list), stm};
   }
 };
 
@@ -67,12 +74,16 @@ public:
 
   [[nodiscard]] tree::Exp *UnEx() override {
     /* TODO: Put your lab5 code here */
+    return new tree::EseqExp(stm_, new tree::ConstExp(0));
   }
   [[nodiscard]] tree::Stm *UnNx() override { 
     /* TODO: Put your lab5 code here */
+    return stm_;
   }
   [[nodiscard]] Cx UnCx(err::ErrorMsg *errormsg) override {
     /* TODO: Put your lab5 code here */
+    // For UnCX should never expect to see a tr::NxExp kind
+    assert(0);
   }
 };
 
@@ -85,16 +96,36 @@ public:
   
   [[nodiscard]] tree::Exp *UnEx() override {
     /* TODO: Put your lab5 code here */
+    temp::Temp *r = temp::TempFactory::NewTemp();
+    temp::Label *t = temp::LabelFactory::NewLabel();
+    temp::Label *f = temp::LabelFactory::NewLabel();
+    cx_.trues_.DoPatch(t);
+    cx_.falses_.DoPatch(f);
+    return new tree::EseqExp(
+        new tree::MoveStm(new tree::TempExp(r), new tree::ConstExp(1)),
+        new tree::EseqExp(
+            cx_.stm_,
+            new tree::EseqExp(
+                new tree::LabelStm(f),
+                new tree::EseqExp(new tree::MoveStm(new tree::TempExp(r),
+                                                    new tree::ConstExp(0)),
+                                  new tree::EseqExp(new tree::LabelStm(t),
+                                                    new tree::TempExp(r))))));
+
   }
   [[nodiscard]] tree::Stm *UnNx() override {
     /* TODO: Put your lab5 code here */
+    return cx_.stm_;
   }
   [[nodiscard]] Cx UnCx(err::ErrorMsg *errormsg) override { 
     /* TODO: Put your lab5 code here */
+    return cx_;
   }
 };
 
 void ProgTr::Translate() {
+  FillBaseTEnv();
+  FillBaseVEnv();
   /* TODO: Put your lab5 code here */
 }
 
@@ -106,12 +137,14 @@ tr::ExpAndTy *AbsynTree::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  return root_->Translate(venv, tenv, level, label, errormsg);
 }
 
 tr::ExpAndTy *SimpleVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+
 }
 
 tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -130,6 +163,7 @@ tr::ExpAndTy *VarExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+
 }
 
 tr::ExpAndTy *NilExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
