@@ -70,4 +70,8 @@ temp::Temp *X64RegManager::ReturnValue() {
   return nullptr;
 }
 
+tree::Exp *ExternalCall(std::string s, tree::ExpList *args){
+  return new tree::CallExp(new tree::NameExp(temp::LabelFactory::NamedLabel(s)), args);
+}
+
 } // namespace frame

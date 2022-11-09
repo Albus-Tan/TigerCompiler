@@ -161,6 +161,7 @@ public:
   void Print(FILE *out, int d) const override;
 };
 
+// In Tiger there is no structured l-valued
 class MemExp : public Exp {
 public:
   Exp *exp_;
