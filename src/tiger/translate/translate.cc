@@ -139,6 +139,11 @@ static tr::ExpAndTy *getVoidExpAndNilTy() {
                           type::NilTy::Instance());
 }
 
+static tr::ExpAndTy *getVoidExpAndVoidTy() {
+  return new tr::ExpAndTy(new tr::ExExp(new tree::ConstExp(0)),
+                          type::VoidTy::Instance());
+}
+
 static tree::ExpStm *getVoidStm() {
   return new tree::ExpStm(new tree::ConstExp(0));
 }
@@ -269,6 +274,51 @@ tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  tr::Level *level, temp::Label *label,
                                  err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  // check if function is defined
+  env::EnvEntry *entry = venv->Look(func_);
+  if (entry && typeid(*entry) == typeid(env::FunEntry)) {
+    env::FunEntry *func = static_cast<env::FunEntry *>(entry);
+
+    // check if formals num match args num
+    if (func->formals_->GetList().size() != args_->GetList().size()) {
+      if (args_->GetList().size() > func->formals_->GetList().size()) {
+        errormsg->Error(pos_ - 1,
+                        "too many params in function " + func_->Name());
+        return tr::getVoidExpAndVoidTy();
+      } else {
+        errormsg->Error(pos_ - 1, "para type mismatch");
+        return tr::getVoidExpAndVoidTy();
+      }
+    }
+
+    tree::ExpList *args_list = new tree::ExpList();
+    // TODO: pass static link as the first parameter
+    // args_list->Append();
+
+    // check if types of actual and formal parameters match
+    // need to use cbegin for const function
+    auto formal_type = func->formals_->GetList().cbegin();
+    for (Exp *arg : args_->GetList()) {
+      tr::ExpAndTy *actual_exp_and_type =
+          arg->Translate(venv, tenv, level, label, errormsg);
+      type::Ty *actual_type = actual_exp_and_type->ty_;
+      if (!actual_type->IsSameType(*formal_type)) {
+        errormsg->Error(arg->pos_, "para type mismatch");
+        return tr::getVoidExpAndVoidTy();
+      }
+      args_list->Append(actual_exp_and_type->exp_->UnEx());
+      ++formal_type;
+    }
+
+    tree::CallExp *exp = new tree::CallExp(new tree::NameExp(func_), args_list);
+
+    // return result type of function
+    return new tr::ExpAndTy(new tr::ExExp(exp), func->result_);
+
+  } else {
+    errormsg->Error(pos_, "undefined function %s", func_->Name().data());
+    return tr::getVoidExpAndVoidTy();
+  }
 }
 
 tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -401,6 +451,34 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  // get the last expression
+  std::list<absyn::Exp *> exp_list = seq_->GetList();
+  absyn::Exp *last_exp = exp_list.back();
+  exp_list.pop_back();
+
+  if (exp_list.empty()) {
+    // only one exp in seq_->GetList()
+    tr::ExpAndTy *last_exp_and_ty =
+        last_exp->Translate(venv, tenv, level, label, errormsg);
+    return new tr::ExpAndTy(last_exp_and_ty->exp_, last_exp_and_ty->ty_);
+  }
+
+  tree::SeqStm *stm = new tree::SeqStm(nullptr, nullptr);
+  tree::SeqStm *current_stm = stm;
+  for (absyn::Exp *exp : exp_list) {
+    tr::ExpAndTy *exp_and_ty =
+        exp->Translate(venv, tenv, level, label, errormsg);
+    current_stm->left_ = exp_and_ty->exp_->UnNx();
+    current_stm = static_cast<tree::SeqStm *>(current_stm->right_);
+  }
+
+  current_stm->right_ = tr::getVoidStm();
+  tr::ExpAndTy *last_exp_and_ty =
+      last_exp->Translate(venv, tenv, level, label, errormsg);
+  tree::Exp *exp = new tree::EseqExp(stm, last_exp_and_ty->exp_->UnEx());
+  // The type and return exp of SeqExp is the type and return exp of the last
+  // expression
+  return new tr::ExpAndTy(new tr::ExExp(exp), last_exp_and_ty->ty_);
 }
 
 tr::ExpAndTy *AssignExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -436,20 +514,91 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                tr::Level *level, temp::Label *label,
                                err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+
   // If e1 then e2 else e3
+  // if(condition) jump t; else jump f;
+  // t: e2, f: e3
+  tr::ExpAndTy *test_exp_and_ty =
+      test_->Translate(venv, tenv, level, label, errormsg);
+  tr::ExpAndTy *then_exp_and_ty =
+      then_->Translate(venv, tenv, level, label, errormsg);
+  type::Ty *thenTy = then_exp_and_ty->ty_;
+  if (errormsg->AnyErrors()) {
+    return new tr::ExpAndTy(tr::getVoidExp(), thenTy);
+  }
+
+  // Make two labels t and f to which the conditional will branch
+  temp::Label *t = temp::LabelFactory::NewLabel();
+  temp::Label *f = temp::LabelFactory::NewLabel();
+  // Both braches should finish by jumping newly created “joint” label
+  temp::Label *joint = temp::LabelFactory::NewLabel();
+
+  // Allocate a temporary r
+  temp::Temp *r = temp::TempFactory::NewTemp();
+
   // Treat e1 as a Cx (apply unCx to e1)
-  // String comparison
+  tr::Cx test_cx = test_exp_and_ty->exp_->UnCx(errormsg);
+  test_cx.trues_ = tr::PatchList({&t});
+  // TODO: String comparison
   // For string equal just calls runtime –system function stringEqual
   // For string unequal just calls runtime –system function stringEqual then
   // complements the result
-  // Treat e2 and e3 as Ex (apply unEx to e2 and e3)
-  // If e2 and e3 are both “statements” (Nx), Translate the result as statement
-  // If e2 or e3 is a Cx
-  // Make two labels t and f to which the conditional will branch
-  // Allocate a temporary r
-  // after label t,  move e2 to r
-  // after label f, move e3 to r
-  // Both braches should finish by jumping newly  created “joint” label
+
+  if (!elsee_) {
+    // no else
+    // then must produce no value
+    if (!thenTy->IsSameType(type::VoidTy::Instance())) {
+      errormsg->Error(then_->pos_, "if-then exp's body must produce no value");
+      return new tr::ExpAndTy(tr::getVoidExp(), thenTy);
+    }
+
+    // If e2 is “statements” (Nx), Translate the result as Nx
+    // If not meet condition, go to false label
+    tree::SeqStm *stm = new tree::SeqStm(
+        test_cx.stm_,
+        new tree::SeqStm(new tree::LabelStm(t),
+                         new tree::SeqStm(then_exp_and_ty->exp_->UnNx(),
+                                          new tree::LabelStm(f))));
+
+    return new tr::ExpAndTy(new tr::NxExp(stm), thenTy);
+  } else {
+    tr::ExpAndTy *else_exp_and_ty =
+        elsee_->Translate(venv, tenv, level, label, errormsg);
+    type::Ty *elseTy = else_exp_and_ty->ty_;
+    // check if then and else have same type
+    if (!elseTy->IsSameType(thenTy)) {
+      errormsg->Error(pos_, "then exp and else exp type mismatch");
+      return new tr::ExpAndTy(tr::getVoidExp(), thenTy);
+    }
+
+    // Treat e2 and e3 as Ex (apply unEx to e2 and e3)
+
+    // after label t,  move e2 to r
+    tree::SeqStm *true_stm = new tree::SeqStm(
+        new tree::LabelStm(t),
+        new tree::SeqStm(
+            new tree::MoveStm(new tree::TempExp(r),
+                              then_exp_and_ty->exp_->UnEx()),
+            new tree::JumpStm(new tree::NameExp(joint),
+                              new std::vector<temp::Label *>{joint})));
+    // after label f, move e3 to r
+    tree::SeqStm *false_stm = new tree::SeqStm(
+        new tree::LabelStm(f),
+        new tree::SeqStm(
+            new tree::MoveStm(new tree::TempExp(r),
+                              else_exp_and_ty->exp_->UnEx()),
+            new tree::JumpStm(new tree::NameExp(joint),
+                              new std::vector<temp::Label *>{joint})));
+    // return exp is r
+    tree::EseqExp *exp = new tree::EseqExp(
+        new tree::SeqStm(
+            test_cx.stm_,
+            new tree::SeqStm(
+                true_stm,
+                new tree::SeqStm(false_stm, new tree::LabelStm(joint)))),
+        new tree::TempExp(r));
+    return new tr::ExpAndTy(new tr::ExExp(exp), thenTy);
+  }
 }
 
 tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -507,18 +656,151 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  // add id (readonly) to venv
+  venv->BeginScope();
+  venv->Enter(var_, new env::VarEntry(tr::Access::AllocLocal(level, false),
+                                      type::IntTy::Instance(), true));
+  tr::ExpAndTy *lo_exp_and_ty =
+      lo_->Translate(venv, tenv, level, label, errormsg);
+  tr::ExpAndTy *hi_exp_and_ty =
+      hi_->Translate(venv, tenv, level, label, errormsg);
+  // check if lo and hi are int type
+  if (!(lo_exp_and_ty->ty_)->IsSameType(type::IntTy::Instance())) {
+    errormsg->Error(lo_->pos_, "for exp's range type is not integer");
+  }
+  if (!(hi_exp_and_ty->ty_)->IsSameType(type::IntTy::Instance())) {
+    errormsg->Error(hi_->pos_, "for exp's range type is not integer");
+  }
+
+  // check if body produce value
+  tr::ExpAndTy *body_exp_and_ty =
+      body_->Translate(venv, tenv, level, label, errormsg);
+  type::Ty *bodyTy = body_exp_and_ty->ty_;
+  if (!bodyTy->IsSameType(type::VoidTy::Instance())) {
+    errormsg->Error(pos_, "for body should produce no value");
+  }
+
+  //  i = lo_
+  //  limit = hi_
+  //  if i > limit goto done
+  // body:
+  //  body
+  //  if i == limit goto done
+  // Loop:	i := i + 1
+  //      body
+  //      if i <= limit goto Loop
+  // done:
+  temp::Temp *limit = temp::TempFactory::NewTemp();
+  // auto loop_i_entry = venv->Look(var_);
+  // TODO: get loop_i in (frame::InRegAccess*)loop_i_entry->access_->access_
+  temp::Temp *loop_i = temp::TempFactory::NewTemp();
+  temp::Label *loop_label = temp::LabelFactory::NewLabel();
+  temp::Label *body_label = temp::LabelFactory::NewLabel();
+  temp::Label *done_label = temp::LabelFactory::NewLabel();
+
+  // init i with lo_
+  auto loop_i_init_stmt =
+      new tree::MoveStm(new tree::TempExp(loop_i), lo_exp_and_ty->exp_->UnEx());
+  // init limit with hi_
+  auto limit_init_stmt =
+      new tree::MoveStm(new tree::TempExp(limit), hi_exp_and_ty->exp_->UnEx());
+
+  // if i > limit goto done
+  auto i_gt_limit_cjump_stmt =
+      new tree::CjumpStm(tree::RelOp::GT_OP, new tree::TempExp(loop_i),
+                         new tree::TempExp(limit), done_label, body_label);
+
+  // i := i + 1
+  auto loop_i_increase_stmt = new tree::MoveStm(
+      new tree::TempExp(loop_i),
+      new tree::BinopExp(tree::BinOp::PLUS_OP, new tree::TempExp(loop_i),
+                         new tree::ConstExp(1)));
+
+  // if i == limit goto done
+  auto i_eq_limit_cjump_stmt =
+      new tree::CjumpStm(tree::RelOp::EQ_OP, new tree::TempExp(loop_i),
+                         new tree::TempExp(limit), done_label, loop_label);
+
+  // if i <= limit goto Loop
+  auto i_le_limit_cjump_stmt =
+      new tree::CjumpStm(tree::RelOp::LE_OP, new tree::TempExp(loop_i),
+                         new tree::TempExp(limit), loop_label, done_label);
+
+  tree::Stm *stm = new tree::SeqStm(
+      loop_i_init_stmt,
+      new tree::SeqStm(
+          limit_init_stmt,
+          new tree::SeqStm(
+              i_gt_limit_cjump_stmt,
+              new tree::SeqStm(
+                  new tree::LabelStm(body_label),
+                  new tree::SeqStm(
+                      body_exp_and_ty->exp_->UnNx(),
+                      new tree::SeqStm(
+                          i_eq_limit_cjump_stmt,
+                          new tree::SeqStm(
+                              new tree::LabelStm(loop_label),
+                              new tree::SeqStm(
+                                  loop_i_increase_stmt,
+                                  new tree::SeqStm(
+                                      body_exp_and_ty->exp_->UnNx(),
+                                      new tree::SeqStm(
+                                          i_le_limit_cjump_stmt,
+                                          new tree::LabelStm(
+                                              done_label)))))))))));
+
+  venv->EndScope();
+  return new tr::ExpAndTy(new tr::NxExp(stm), type::VoidTy::Instance());
 }
 
 tr::ExpAndTy *BreakExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   tr::Level *level, temp::Label *label,
                                   err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  // A break statement simply jump to label
+  // TODO: why do we need both std::vector<temp::Label *> ?? and tree::NameExp
+  //  switch in C
+  tree::JumpStm *jump_stm = new tree::JumpStm(
+      new tree::NameExp(label), new std::vector<temp::Label *>{label});
+  return new tr::ExpAndTy(new tr::NxExp(jump_stm), type::VoidTy::Instance());
 }
 
 tr::ExpAndTy *LetExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  venv->BeginScope();
+  tenv->BeginScope();
+  tree::Stm *dec_list_stm = nullptr;
+  for (Dec *dec : decs_->GetList()) {
+    tree::Stm *dec_stm =
+        dec->Translate(venv, tenv, level, label, errormsg)->UnNx();
+    if (dec_list_stm) {
+      dec_list_stm = new tree::SeqStm(dec_list_stm, dec_stm);
+    } else {
+      dec_list_stm = dec_stm;
+    }
+  }
+
+  tr::ExpAndTy *body_exp_and_ty = new tr::ExpAndTy(nullptr, nullptr);
+  if (!body_) {
+    body_exp_and_ty->ty_ = type::VoidTy::Instance();
+    body_exp_and_ty->exp_ = tr::getVoidExp();
+  } else
+    body_exp_and_ty = body_->Translate(venv, tenv, level, label, errormsg);
+
+  tenv->EndScope();
+  venv->EndScope();
+
+  tree::Exp *result_exp;
+  if (dec_list_stm) {
+    result_exp = new tree::EseqExp(dec_list_stm, body_exp_and_ty->exp_->UnEx());
+  } else {
+    result_exp = body_exp_and_ty->exp_->UnEx();
+  }
+
+  return new tr::ExpAndTy(new tr::ExExp(result_exp),
+                          body_exp_and_ty->ty_->ActualTy());
 }
 
 tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -571,18 +853,122 @@ tr::ExpAndTy *VoidExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  tr::Level *level, temp::Label *label,
                                  err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  return tr::getVoidExpAndVoidTy();
 }
 
 tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
-  /* TODO: Put your lab5 code here */
+
+  // For FunctionDec Node there are two passes for its children nodes
+
+  // First pass
+  // Only recursive functions themselves are entered into the venv with their
+  // prototypes function name, types of formal parameters, type of return value
+  for (absyn::FunDec *function : functions_->GetList()) {
+
+    temp::Label *function_label =
+        temp::LabelFactory::NamedLabel(function->name_->Name());
+
+    type::Ty *result_ty = function->result_ ? tenv->Look(function->result_)
+                                            : type::VoidTy::Instance();
+    type::TyList *formals_ty =
+        function->params_->MakeFormalTyList(tenv, errormsg);
+
+    // check if two functions have the same name
+    // check only in this declaration list not in environment because
+    // only two functions with the same name in the same (consecutive) batch of
+    // mutually recursive types is illegal
+    for (absyn::FunDec *anotherFunction : functions_->GetList()) {
+      if (function != anotherFunction &&
+          function->name_ == anotherFunction->name_) {
+        errormsg->Error(pos_, "two functions have the same name");
+        return new tr::ExExp(new tree::ConstExp(0));
+      }
+    }
+
+    venv->Enter(function->name_, new env::FunEntry(level, function_label,
+                                                   formals_ty, result_ty));
+  }
+
+  // Second pass
+  // Trans the body using the new environment
+  // The formal parameters are processed again
+  // This time entering params as env::VarEntrys
+  for (absyn::FunDec *function : functions_->GetList()) {
+    venv->BeginScope();
+
+    /* TODO: Put your lab5 code here */
+
+    type::Ty *result_ty = function->result_ ? tenv->Look(function->result_)
+                                            : type::VoidTy::Instance();
+    type::TyList *formals_ty =
+        function->params_->MakeFormalTyList(tenv, errormsg);
+
+    // entering params as env::VarEntry
+    auto formal_ty = formals_ty->GetList().cbegin();
+    for (absyn::Field *param : function->params_->GetList()) {
+      venv->Enter(param->name_, new env::VarEntry(*formal_ty));
+      ++formal_ty;
+    }
+
+    // TODO
+    //    type::Ty *body_ty = function->body_->SemAnalyze(venv, tenv,
+    //    labelcount, errormsg);
+    //    // check if body_ty is same as result_ty
+    //    if(!body_ty->IsSameType(result_ty)){
+    //      errormsg->Error(pos_, "procedure returns value");
+    //    }
+
+    venv->EndScope();
+
+    // TODO: calculate and return tr::exp
+  }
 }
 
 tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                            tr::Level *level, temp::Label *label,
                            err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  tr::ExpAndTy *init_exp_and_ty =
+      init_->Translate(venv, tenv, level, label, errormsg);
+  auto init_ty = init_exp_and_ty->ty_;
+
+  if (typ_) {
+    // var x : type_id := exp
+    type::Ty *type_id = tenv->Look(typ_);
+
+    // check if type exist
+    if (!type_id) {
+      errormsg->Error(pos_, "undefined type %s", typ_->Name().data());
+      return new tr::NxExp(tr::getVoidStm());
+    }
+
+    // check that type_id and type of exp are compatible
+    if (!init_ty->ActualTy()->IsSameType(type_id)) {
+      errormsg->Error(init_->pos_, "type mismatch");
+      return new tr::NxExp(tr::getVoidStm());
+    }
+
+    tr::Access *access = tr::Access::AllocLocal(level, escape_);
+    venv->Enter(var_, new env::VarEntry(access, type_id));
+    return new tr::NxExp(new tree::MoveStm(
+        access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+        init_exp_and_ty->exp_->UnEx()));
+  } else {
+    // var x := exp
+    // if the type of exp is NilTy, must have type_id
+    if (init_ty->ActualTy()->IsSameType(type::NilTy::Instance()) &&
+        typeid(*(init_ty->ActualTy())) != typeid(type::RecordTy)) {
+      errormsg->Error(pos_, "init should not be nil without type specified");
+      return new tr::NxExp(tr::getVoidStm());
+    }
+    tr::Access *access = tr::Access::AllocLocal(level, escape_);
+    venv->Enter(var_, new env::VarEntry(access, init_ty->ActualTy()));
+    return new tr::NxExp(new tree::MoveStm(
+        access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+        init_exp_and_ty->exp_->UnEx()));
+  }
 }
 
 tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,

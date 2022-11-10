@@ -62,6 +62,7 @@ public:
   [[nodiscard]] virtual temp::Temp *ReturnValue() = 0;
 
   temp::Map *temp_map_;
+
 protected:
   std::vector<temp::Temp *> regs_;
 };
@@ -69,13 +70,24 @@ protected:
 class Access {
 public:
   /* TODO: Put your lab5 code here */
-  
+  virtual tree::Exp *ToExp(tree::Exp* framePointer) const = 0;  // Get the expression to access the variable
+
   virtual ~Access() = default;
-  
 };
 
 class Frame {
   /* TODO: Put your lab5 code here */
+protected:
+  int size_ = 0; // frame size
+  temp::Label *label_ =
+      nullptr; // indicate the return address (jump to according label)
+public:
+  Frame() {}
+  Frame(temp::Label *label, int size = 0) : label_(label), size_(size) {}
+  ~Frame() {}
+  [[nodiscard]] int Size() const { return size_; }
+  [[nodiscard]] void SetSize(int size) {size_ = size;}
+  [[nodiscard]] temp::Label *GetLabel() { return label_; }
 };
 
 /**
@@ -108,15 +120,14 @@ class Frags {
 public:
   Frags() = default;
   void PushBack(Frag *frag) { frags_.push_back(frag); }
-  const std::list<Frag*> &GetList() { return frags_; }
+  const std::list<Frag *> &GetList() { return frags_; }
 
 private:
-  std::list<Frag*> frags_;
+  std::list<Frag *> frags_;
 };
 
 /* TODO: Put your lab5 code here */
 tree::Exp *ExternalCall(std::string s, tree::ExpList *args);
-
 
 } // namespace frame
 
