@@ -1,0 +1,16 @@
+/* After GC, only a2 will survive */
+
+let
+	type intArray = array of int
+    /* 8KB + descriptor size */  
+    var N := 1024
+    var sizeOfHeap := MaxFree()
+    var allocateToGC := sizeOfHeap / N / 8
+    var a1 := intArray [N] of 1
+    var a2 := intArray [N] of 2
+in
+	(for i := 0 to allocateToGC do a1 := intArray[N] of i;
+     printi(a2[512]);
+     print("\n")
+    )
+end

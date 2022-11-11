@@ -1,0 +1,14 @@
+/* After GC, only r2 will survive */
+
+let
+	type r = {a:int, b:int, c:int}
+    var N := 40960
+    var r1 := r{ a = 1, b = 2, c = 3 }
+    var r2 := r{ a = 4, b = 5, c = 6 } 
+in
+	(for i := 0 to N
+     do r1 := r{ a = 1, b = 2, c = 3};
+     printi(r2.a);
+     print("\n")
+    )
+end

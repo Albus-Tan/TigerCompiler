@@ -38,6 +38,7 @@ file(GLOB TIGER_SOURCES
         "src/tiger/liveness/*.cc"
         "src/tiger/regalloc/*.cc"
         "src/tiger/output/*.cc"
+        "src/tiger/runtime/gc/roots/*.cc"
         )
 
 SET(TIGER_LEX_PARSE_SOURCES

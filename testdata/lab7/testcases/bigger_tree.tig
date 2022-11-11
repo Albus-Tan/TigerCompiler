@@ -1,0 +1,128 @@
+let
+  /* Each node is 32 bytes */
+  type node = { key: int, left: node, right: node }
+  var sizeOfHeap := MaxFree()
+  var N := 1024
+  var garbageToFill := (sizeOfHeap - 512 * 1024) / 32
+  /* Insert t2 as t1's children. */
+  function insert(t1: node, t2: node) : node =
+    let var p := t1
+        var q := t1 
+     in 
+      if t1 = nil 
+        then t2 
+        else
+          ( q := if t1.key < t2.key then t1.right else t1.left;
+            while q <> nil do ( 
+              p := q;
+              q := if p.key < t2.key
+                     then p.right
+                     else p.left);
+            if p.key < t2.key then p.right := t2 else p.left := t2;
+            t1            
+          )
+    end
+        
+  function printint(i: int) = 
+    let 
+      function f(i: int) = 
+        if i > 0 then 
+          (f(i/10); print(chr(i - i / 10 * 10 + ord("0"))))
+     in 
+      (if i < 0 then (print("-"); f(-i))
+       else if i > 0 then f(i)
+       else print("0");
+       print(" ")
+      )
+    end
+ 
+  /* Inorder Traversal to print the bst three */  
+  function printtree(t: node) = 
+    if t <> nil then 
+      (printtree(t.left); printint(t.key); printtree(t.right))
+    
+  function getnode(i: int) : node = 
+    node {key= i, left= nil, right= nil}
+
+  var root1 : node := nil
+  var root2 : node := nil
+  var deadRoot1 : node := nil
+  var deadRoot2 : node := nil
+  var tmp : node := nil
+ 
+ in (
+   root1     := insert(root1, getnode(N));
+   root2     := insert(root2, getnode(2*N));
+   deadRoot1 := insert(deadRoot1, getnode(3*N));
+   deadRoot2 := insert(deadRoot2, getnode(4*N));
+   root1     := insert(root1, getnode(2*N));
+   root2     := insert(root2, getnode(4*N));
+   deadRoot1 := insert(deadRoot1, getnode(6*N));
+   deadRoot2 := insert(deadRoot2, getnode(8*N));
+
+   root1     := insert(root1, getnode(N/2));
+   root2     := insert(root2, getnode(N));
+   deadRoot1 := insert(deadRoot1, getnode(3*N/2));
+   deadRoot2 := insert(deadRoot2, getnode(2*N));
+   root1     := insert(root1, getnode(3*N/2));
+   root2     := insert(root2, getnode(3*N));
+   deadRoot1 := insert(deadRoot1, getnode(9*N/2));
+   deadRoot2 := insert(deadRoot2, getnode(6*N));
+   
+   for i := 0 to (N-2) do (
+     root1 := insert(root1, getnode(i));
+     root2 := insert(root2, getnode(2*i));
+     deadRoot1 := insert(deadRoot1, getnode(3*i));
+     deadRoot2 := insert(deadRoot2, getnode(4*i));
+     root1 := insert(root1, getnode(N+i));
+     root2 := insert(root2, getnode(2*(N+i)));
+     deadRoot1 := insert(deadRoot1, getnode(3*(N+i)));
+     deadRoot2 := insert(deadRoot2, getnode(4*(N+i)));
+
+     /* do it again to make the tree full */
+     root1 := insert(root1, getnode(i));
+     root2 := insert(root2, getnode(2*i));
+     deadRoot1 := insert(deadRoot1, getnode(3*i));
+     deadRoot2 := insert(deadRoot2, getnode(4*i));
+     root1 := insert(root1, getnode(N+i));
+     root2 := insert(root2, getnode(2*(N+i)));
+     deadRoot1 := insert(deadRoot1, getnode(3*(N+i)));
+     deadRoot2 := insert(deadRoot2, getnode(4*(N+i)))
+   );
+   /* After insert, exactly 512KB alive objects */
+
+   for i := 0 to garbageToFill do (tmp := getnode(i));
+   printtree(root1);
+   print("\n");
+   printtree(root2);
+   print("\n");
+   printtree(deadRoot1);
+   print("\n");
+   printtree(deadRoot2);
+   print("\n");
+
+   /* Round 2 */
+   for i := 0 to (N-1) do (
+     root1 := insert(root1, getnode(i));
+     root2 := insert(root2, getnode(2*i));
+
+     root1 := insert(root1, getnode(N+i));
+     root2 := insert(root2, getnode(2*(N+i)));
+
+     /* do it again to make the tree full */
+     root1 := insert(root1, getnode(i));
+     root2 := insert(root2, getnode(2*i));
+
+     root1 := insert(root1, getnode(N+i));
+     root2 := insert(root2, getnode(2*(N+i)))
+
+   );
+   /* After insert, exactly 512KB alive objects */
+   for i := 0 to garbageToFill do (tmp := getnode(i));
+   printtree(root1);
+   print("\n");
+   printtree(root2);
+   print("\n")
+ )
+  
+end  
