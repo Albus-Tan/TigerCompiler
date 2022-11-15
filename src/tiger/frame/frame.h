@@ -86,7 +86,7 @@ public:
 
 class Frame {
   /* TODO: Put your lab5 code here */
-protected:
+public:
   // formals_ extracts a list of k “accesses”
   // denoting the locations where the formal parameters will be kept at run time
   // as seen from inside the callee
@@ -94,14 +94,14 @@ protected:
   int offset_ = 0;                        // - frame size
 
   // label at which the function’s machine code is to begin
-  temp::Label *label_ =
+  temp::Label *name_ =
       nullptr; // indicate the return address (jump to according label)
 public:
   Frame() {}
-  Frame(temp::Label *label, int size = 0) : label_(label), offset_(-size) {}
+  Frame(temp::Label *label, int size = 0) : name_(label), offset_(-size) {}
   ~Frame() {}
   [[nodiscard]] int Size() const { return -offset_; }
-  [[nodiscard]] temp::Label *GetLabel() { return label_; }
+  [[nodiscard]] std::string GetLabel() { return name_->Name(); }
   [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
   virtual int AllocLocal() = 0;  // return an offset from the frame pointer
 };
@@ -159,6 +159,9 @@ private:
 
 /* TODO: Put your lab5 code here */
 tree::Exp *ExternalCall(std::string s, tree::ExpList *args);
+tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm);
+assem::InstrList *ProcEntryExit2(assem::InstrList *body);
+assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body);
 
 } // namespace frame
 

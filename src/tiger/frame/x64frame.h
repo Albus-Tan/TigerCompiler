@@ -60,5 +60,32 @@ public:
 
 };
 
+/* TODO: Put your lab5 code here */
+class InFrameAccess : public Access {
+public:
+  int offset;
+
+  explicit InFrameAccess(int offset) : offset(offset) {}
+  /* TODO: Put your lab5 code here */
+  tree::Exp *ToExp(tree::Exp *frame_ptr) const override;
+};
+
+class InRegAccess : public Access {
+public:
+  temp::Temp *reg; // Temp is a data structure represents virtual registers
+  explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
+  /* TODO: Put your lab5 code here */
+  tree::Exp *ToExp(tree::Exp *framePtr) const override {
+    return new tree::TempExp(reg);
+  }
+};
+
+class X64Frame : public Frame {
+  /* TODO: Put your lab5 code here */
+public:
+  int AllocLocal();
+  std::list<frame::Access *> *Formals();
+};
+
 } // namespace frame
 #endif // TIGER_COMPILER_X64FRAME_H

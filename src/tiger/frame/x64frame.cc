@@ -4,32 +4,6 @@
 extern frame::RegManager *reg_manager;
 
 namespace frame {
-/* TODO: Put your lab5 code here */
-class InFrameAccess : public Access {
-public:
-  int offset;
-
-  explicit InFrameAccess(int offset) : offset(offset) {}
-  /* TODO: Put your lab5 code here */
-  tree::Exp *ToExp(tree::Exp *frame_ptr) const override;
-};
-
-class InRegAccess : public Access {
-public:
-  temp::Temp *reg; // Temp is a data structure represents virtual registers
-  explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
-  /* TODO: Put your lab5 code here */
-  tree::Exp *ToExp(tree::Exp *framePtr) const override {
-    return new tree::TempExp(reg);
-  }
-};
-
-class X64Frame : public Frame {
-  /* TODO: Put your lab5 code here */
-public:
-  int AllocLocal();
-  std::list<frame::Access *> *Formals();
-};
 
 int X64Frame::AllocLocal() {
   // Keep away from the return address on the top of the frame
@@ -88,16 +62,33 @@ tree::Exp *ExternalCall(std::string s, tree::ExpList *args) {
                            args);
 }
 
+tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
+  /* TODO: Put your lab5 code here */
+  return nullptr;
+}
+
+assem::InstrList *ProcEntryExit2(assem::InstrList *body) {
+  /* TODO: Put your lab5 code here */
+  return nullptr;
+}
+
+assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
+  /* TODO: Put your lab5 code here */
+  return nullptr;
+}
+
+
 Access *Access::AllocLocal(Frame *frame, bool escape) {
 
-  if (escape) {
-    //  Frame::AllocLocal(TRUE) Returns an InFrameAccess with an offset from the
-    //  frame pointer
-    return new frame::InFrameAccess(frame->AllocLocal());
-  } else {
-    //  Frame::AllocLocal(FALSE) Returns a register InRegAccess(t481)
-    return new frame::InRegAccess(temp::TempFactory::NewTemp());
-  }
+  return nullptr;
+//  if (escape) {
+//    //  Frame::AllocLocal(TRUE) Returns an InFrameAccess with an offset from the
+//    //  frame pointer
+//    return new frame::InFrameAccess(frame->AllocLocal());
+//  } else {
+//    //  Frame::AllocLocal(FALSE) Returns a register InRegAccess(t481)
+//    return new frame::InRegAccess(temp::TempFactory::NewTemp());
+//  }
 }
 
 } // namespace frame
