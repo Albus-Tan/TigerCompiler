@@ -15,6 +15,7 @@ namespace tr {
 
 Access *Access::AllocLocal(Level *level, bool escape) {
   /* TODO: Put your lab5 code here */
+  return new Access(level, frame::Access::AllocLocal(level->frame_, escape));
 }
 
 class Cx {
@@ -896,9 +897,14 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // The formal parameters are processed again
   // This time entering params as env::VarEntrys
   for (absyn::FunDec *function : functions_->GetList()) {
-    venv->BeginScope();
+
+    // get FunEntry
+    env::FunEntry *entry = static_cast<env::FunEntry *>(venv->Look(function->name_));
 
     /* TODO: Put your lab5 code here */
+    // TODO: Calls upon tr::Level::NewLevel in processing a function header
+
+    venv->BeginScope();
 
     type::Ty *result_ty = function->result_ ? tenv->Look(function->result_)
                                             : type::VoidTy::Instance();
@@ -975,19 +981,78 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                             tr::Level *level, temp::Label *label,
                             err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  for(NameAndTy* type : types_->GetList()){
+    // check if two types have the same name
+    // check only in this declaration list not in environment because
+    // only two types with the same name in the same (consecutive) batch of
+    // mutually recursive types is illegal
+    for (NameAndTy *anotherType : types_->GetList()) {
+      if (type != anotherType && type->name_ == anotherType->name_) {
+        errormsg->Error(pos_, "two types have the same name");
+        return tr::getVoidExp();
+      }
+    }
+    // Let the body to be NULL at first
+    tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
+  }
+
+  for(NameAndTy* type : types_->GetList()){
+    // find name_ in tenv
+    type::NameTy *name_ty = static_cast<type::NameTy *>(tenv->Look(type->name_));
+
+    // modify the ty_ field of the type::NameTy class in the tenv for which is NULL now
+    name_ty->ty_ = type->ty_->Translate(tenv, errormsg);
+
+    // doesn't get type
+    if(!name_ty->ty_){
+      errormsg->Error(pos_, "undefined type %s", type->name_);
+      break;
+    }
+
+    // check if type declarations form illegal cycle from current one
+    type::Ty *tmp = tenv->Look(type->name_), *next, *start = tmp;
+    while(tmp){
+
+      // break if not a name type
+      if(typeid(*tmp) != typeid(type::NameTy)) break;
+
+      next = (static_cast<type::NameTy *>(tmp))->ty_;
+      if(next == start){
+        errormsg->Error(pos_, "illegal type cycle");
+        return tr::getVoidExp();
+      }
+
+      tmp = next;
+    }
+
+    return tr::getVoidExp();
+  }
 }
 
 type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  type::Ty *type = tenv->Look(name_);
+  if(!type){
+    errormsg->Error(pos_, "undefined type %s", name_->Name().data());
+    return type::NilTy::Instance();
+  }
+  return type;
 }
 
 type::Ty *RecordTy::Translate(env::TEnvPtr tenv,
                               err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  return new type::RecordTy(record_->MakeFieldList(tenv, errormsg));
 }
 
 type::Ty *ArrayTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  type::Ty *type = tenv->Look(array_);
+  if(!type){
+    errormsg->Error(pos_, "undefined type %s", array_->Name().data());
+    return type::NilTy::Instance();
+  }
+  return new type::ArrayTy(type);
 }
 
 } // namespace absyn

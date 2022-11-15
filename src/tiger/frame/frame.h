@@ -10,6 +10,9 @@
 
 namespace frame {
 
+class Access;
+class Frame;
+
 class RegManager {
 public:
   RegManager() : temp_map_(temp::Map::Empty()) {}
@@ -70,7 +73,10 @@ protected:
 class Access {
 public:
   /* TODO: Put your lab5 code here */
-  virtual tree::Exp *ToExp(tree::Exp* framePointer) const = 0;  // Get the expression to access the variable
+  Access() {}
+  virtual tree::Exp *ToExp(tree::Exp *framePtr)
+      const = 0; // Get the expression to access the variable
+  static Access *AllocLocal(Frame *frame, bool escape);
 
   virtual ~Access() = default;
 };
@@ -78,16 +84,23 @@ public:
 class Frame {
   /* TODO: Put your lab5 code here */
 protected:
-  int size_ = 0; // frame size
+  // formals_ extracts a list of k “accesses”
+  // denoting the locations where the formal parameters will be kept at run time
+  // as seen from inside the callee
+  std::list<frame::Access *> *formals_; // The locations of all the formals
+  int offset_ = 0;                        // - frame size
+
+  // label at which the function’s machine code is to begin
   temp::Label *label_ =
       nullptr; // indicate the return address (jump to according label)
 public:
   Frame() {}
-  Frame(temp::Label *label, int size = 0) : label_(label), size_(size) {}
+  Frame(temp::Label *label, int size = 0) : label_(label), offset_(-size) {}
   ~Frame() {}
-  [[nodiscard]] int Size() const { return size_; }
-  [[nodiscard]] void SetSize(int size) {size_ = size;}
+  [[nodiscard]] int Size() const { return -offset_; }
   [[nodiscard]] temp::Label *GetLabel() { return label_; }
+  [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
+  virtual int AllocLocal() = 0;  // return an offset from the frame pointer
 };
 
 /**
