@@ -58,8 +58,9 @@ class AddInstruction(Instruction):
         elif re.match(OperandEnum.Imm.value, self._arg1):
             raise AssertionError("Should not use Imm as second operand")
         else:
-            arg1_val = state_table.load_mem(self._arg1)
-            state_table.store_mem(self._arg1, arg0_val+arg1_val)
+            mem_add = state_table.get_mem_address(self._arg1)
+            arg1_val = state_table.load_mem(mem_add)
+            state_table.store_mem(mem_add, arg0_val + arg1_val)
 
 
     def print_kind(self):
@@ -86,8 +87,9 @@ class SubInstruction(Instruction):
         elif re.match(OperandEnum.Imm.value, self._arg1):
             raise AssertionError("Should not use Imm as second operand")
         else:
-            arg1_val = state_table.load_mem(self._arg1)
-            state_table.store_mem(self._arg1, arg1_val-arg0_val)
+            mem_add = state_table.get_mem_address(self._arg1)
+            arg1_val = state_table.load_mem(mem_add)
+            state_table.store_mem(mem_add, arg1_val - arg0_val)
 
 
     def print_kind(self):
