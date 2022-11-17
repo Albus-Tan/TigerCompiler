@@ -16,6 +16,15 @@ namespace cg {
 
 void CodeGen::Codegen() {
   /* TODO: Put your lab5 code here */
+  auto *list = new assem::InstrList();
+  for (auto stm : traces_->GetStmList()->GetList()){
+    /* TODO: Put your lab5 code here */
+    // stm->Munch(*list);
+  }
+
+  assem_instr_ =
+      std::make_unique<AssemInstr>(frame::ProcEntryExit2(list));
+
 }
 
 void AssemInstr::Print(FILE *out, temp::Map *map) const {
@@ -34,6 +43,9 @@ void SeqStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void LabelStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  instr_list.Append(
+      new assem::LabelInstr(temp::LabelFactory::LabelString(label_), label_));
+
 }
 
 void JumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {

@@ -11,7 +11,33 @@ namespace frame {
 class X64RegManager : public RegManager {
   /* TODO: Put your lab5 code here */
 
+  enum X64Reg {
+    RAX = 0,
+    RBX,
+    RCX,
+    RDX,
+    RSI,
+    RDI,
+    RSP,
+    RBP,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    R15
+  };
+
+  const std::string X64RegNames[16] = {"rax", "rbx", "rcx", "rdx", "rsi", "rdi",
+                                       "rsp", "rbp", "r8",  "r9",  "r10", "r11",
+                                       "r12", "r13", "r14", "r15"};
+
 public:
+
+  X64RegManager();
+
   /**
    * Get general-purpose registers except RSI
    * NOTE: returned temp list should be in the order of calling convention
@@ -56,33 +82,34 @@ public:
   temp::Temp *StackPointer();
 
   temp::Temp *ReturnValue();
-
-
 };
 
 /* TODO: Put your lab5 code here */
+// visiting var in frame
 class InFrameAccess : public Access {
 public:
   int offset;
 
   explicit InFrameAccess(int offset) : offset(offset) {}
   /* TODO: Put your lab5 code here */
-  tree::Exp *ToExp(tree::Exp *frame_ptr) const override;
+
+  // return off(fp) (for visiting var on stack)
+  tree::Exp *ToExp(tree::Exp *framePtr) const override;
 };
 
+// visiting var in reg
 class InRegAccess : public Access {
 public:
   temp::Temp *reg; // Temp is a data structure represents virtual registers
   explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
   /* TODO: Put your lab5 code here */
-  tree::Exp *ToExp(tree::Exp *framePtr) const override {
-    return new tree::TempExp(reg);
-  }
+  tree::Exp *ToExp(tree::Exp *framePtr) const override;
 };
 
 class X64Frame : public Frame {
   /* TODO: Put your lab5 code here */
 public:
+  X64Frame(temp::Label *name, std::list<bool> formals);
   int AllocLocal();
   std::list<frame::Access *> *Formals();
 };

@@ -72,6 +72,7 @@ protected:
   std::vector<temp::Temp *> regs_;
 };
 
+// var location in frame or reg
 class Access {
 public:
   /* TODO: Put your lab5 code here */
@@ -90,21 +91,25 @@ public:
   // formals_ extracts a list of k “accesses”
   // denoting the locations where the formal parameters will be kept at run time
   // as seen from inside the callee
-  std::list<frame::Access *> *formals_; // The locations of all the formals
+  // first is static link
+  std::list<frame::Access *> *formals_; // The locations of all the formals ()
   int offset_ = 0;                        // - frame size
 
+  // TODO: num of local var
+
   // label at which the function’s machine code is to begin
-  temp::Label *name_ =
-      nullptr; // indicate the return address (jump to according label)
+  temp::Label *name_ = nullptr; // indicate the return address (jump to according label)
 public:
   Frame() {}
-  Frame(temp::Label *label, int size = 0) : name_(label), offset_(-size) {}
+  Frame(temp::Label *name) : offset_(0), name_(name) {}
   ~Frame() {}
   [[nodiscard]] int Size() const { return -offset_; }
   [[nodiscard]] std::string GetLabel() { return name_->Name(); }
   [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
   virtual int AllocLocal() = 0;  // return an offset from the frame pointer
 };
+
+
 
 /**
  * Fragments

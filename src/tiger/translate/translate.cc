@@ -14,8 +14,14 @@ extern frame::RegManager *reg_manager;
 namespace tr {
 
 Access *Access::AllocLocal(Level *level, bool escape) {
-  /* TODO: Put your lab5 code here */
   return new Access(level, frame::Access::AllocLocal(level->frame_, escape));
+}
+
+tree::Exp *Access::ToExp(Level *currentLevel) {
+  // get the exp to access the variable, consider static links
+  // get framePtr of the frame where var in
+  tree::Exp *framePtr = currentLevel->StaticLink(level_);
+  return access_->ToExp(framePtr);
 }
 
 class Cx {
@@ -127,6 +133,11 @@ void ProgTr::Translate() {
   FillBaseTEnv();
   FillBaseVEnv();
   /* TODO: Put your lab5 code here */
+  temp::Label *main_label_ = temp::LabelFactory::NamedLabel("tigermain");
+  main_level_ =
+      std::make_unique<Level>(nullptr, main_label_, std::list<bool>());
+  absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
+                         main_label_, errormsg_.get());
 }
 
 // TODO may have bugs
@@ -149,6 +160,36 @@ static tree::ExpStm *getVoidStm() {
   return new tree::ExpStm(new tree::ConstExp(0));
 }
 
+// Static link: A frame pointer passed as the first parameter to callee
+tree::Exp *Level::StaticLink(Level *targetLevel) {
+  // Get the static link from current level to the target level
+  Level *currentLevel = this;
+  // get current frame pointer
+  tree::Exp *framePtr = new tree::TempExp(reg_manager->FramePointer());
+  // check from current level
+  // target level must be current level ancestor
+  while (currentLevel && currentLevel != targetLevel) {
+    // get frame pointer out (first parameter)
+    framePtr = currentLevel->frame_->formals_->front()->ToExp(framePtr);
+    currentLevel = currentLevel->parent_;
+  }
+  // return framePtr of target level
+  return framePtr;
+}
+
+// TODO
+std::list<Access *> *Level::Formals() { return nullptr; }
+
+// tr::Level::NewLevel adds an extra element to the formal parameter list and
+// calls formals.push_front(true); NewFrame(label, formals);
+Level::Level(Level *parent, temp::Label *name, std::list<bool> formals)
+    : parent_(parent) {
+  // add formal parameter for static link
+  formals.push_front(true);
+  // allocate new frame
+  frame_ = new frame::X64Frame(name, formals);
+}
+
 } // namespace tr
 
 namespace absyn {
@@ -166,16 +207,15 @@ tr::ExpAndTy *SimpleVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   env::EnvEntry *entry = venv->Look(sym_);
   if (entry && typeid(*entry) == typeid(env::VarEntry)) {
-    env::VarEntry *var = static_cast<env::VarEntry *>(entry);
-    // TODO
+    env::VarEntry *var_entry = static_cast<env::VarEntry *>(entry);
     // Suppose variable is x and its acc is inFrame
     // If access is in the level, Resulting tree is MEM(+(CONST(k), TEMP(FP)))
     // Otherwise, static links must be used
     // MEM( + ( CONST k, MEM(( …MEM(TEMP FP) …))))
     // n static links must be follow, k is the offset of x in the defined
     // function
-
-    // return var->ty_->ActualTy();
+    tree::Exp *exp = var_entry->access_->ToExp(level);
+    return new tr::ExpAndTy(new tr::ExExp(exp), var_entry->ty_->ActualTy());
   } else {
     errormsg->Error(pos_, "undefined variable %s", sym_->Name().data());
   }
@@ -197,15 +237,17 @@ tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
   // check if record has this field
   type::RecordTy *record = static_cast<type::RecordTy *>(type);
+  int idx = 0;
   for (type::Field *field : record->fields_->GetList()) {
     if (field->name_->Name() == sym_->Name()) {
       // A.f is MEM(+(MEM(e), CONST offset f))
       // Add the constant field offset of f to the address A
-      tree::MemExp *exp = new tree::MemExp(
-          new tree::BinopExp(tree::BinOp::PLUS_OP, exp_and_ty->exp_->UnEx(),
-                             new tree::ConstExp(reg_manager->WordSize())));
+      tree::MemExp *exp = new tree::MemExp(new tree::BinopExp(
+          tree::BinOp::PLUS_OP, exp_and_ty->exp_->UnEx(),
+          new tree::ConstExp(idx * (reg_manager->WordSize()))));
       return new tr::ExpAndTy(new tr::ExExp(exp), field->ty_);
     }
+    ++idx;
   }
   errormsg->Error(pos_, "field %s doesn't exist", sym_->Name().c_str());
   return tr::getVoidExpAndNilTy();
@@ -293,8 +335,13 @@ tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     }
 
     tree::ExpList *args_list = new tree::ExpList();
-    // TODO: pass static link as the first parameter
-    // args_list->Append();
+    // pass static link as the first parameter
+
+    // If this is a user function
+    if (func->level_) {
+      // Pass static link as the first parameter
+      args_list->Append(level->StaticLink(func->level_));
+    }
 
     // check if types of actual and formal parameters match
     // need to use cbegin for const function
@@ -343,19 +390,92 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       return new tr::ExpAndTy(tr::getVoidExp(), type::IntTy::Instance());
     }
 
-    return new tr::ExpAndTy(new tr::ExExp(new tree::BinopExp(
-                                static_cast<tree::BinOp>(oper_),
-                                left->exp_->UnEx(), right->exp_->UnEx())),
-                            type::IntTy::Instance());
+    tree::BinOp bin_op;
+    switch (oper_) {
+    case absyn::PLUS_OP:
+      bin_op = tree::BinOp::PLUS_OP;
+      break;
+    case absyn::MINUS_OP:
+      bin_op = tree::BinOp::MINUS_OP;
+      break;
+    case absyn::TIMES_OP:
+      bin_op = tree::BinOp::MUL_OP;
+      break;
+    case absyn::DIVIDE_OP:
+      bin_op = tree::BinOp::DIV_OP;
+      break;
+    }
+
+    return new tr::ExpAndTy(
+        new tr::ExExp(new tree::BinopExp(bin_op, left->exp_->UnEx(),
+                                         right->exp_->UnEx())),
+        type::IntTy::Instance());
   } else {
     if (!left_ty->IsSameType(right_ty)) {
       // check if operands type is same
       errormsg->Error(pos_, "same type required");
       return left;
     }
-    /* TODO: Put your lab5 code here */
 
-    //    return type::IntTy::Instance();
+    switch (oper_) {
+    case absyn::AND_OP:
+      // TODO
+      break;
+    case absyn::OR_OP:
+      // TODO
+      break;
+    }
+
+    tree::CjumpStm *cjump_stm = nullptr;
+    tree::RelOp rel_op;
+    switch (oper_) {
+    case absyn::EQ_OP:
+    case absyn::NEQ_OP: {
+      rel_op =
+          (oper_ == absyn::EQ_OP) ? tree::RelOp::EQ_OP : tree::RelOp::NE_OP;
+      // for string comparison, call string_equal
+      // String comparison
+      // For string equal just calls runtime –system function stringEqual
+      // For string unequal just calls runtime –system function stringEqual then
+      // complements the result
+      if (left_ty->IsSameType(type::StringTy::Instance())) {
+        tree::ExpList *args = new tree::ExpList();
+        args->Append(left->exp_->UnEx());
+        args->Append(right->exp_->UnEx());
+        // string_equal return 1 for equal, 0 for not
+        cjump_stm = new tree::CjumpStm(
+            rel_op, frame::ExternalCall("string_equal", args),
+            new tree::ConstExp(1), nullptr, nullptr);
+      } else {
+        cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
+                                       right->exp_->UnEx(), nullptr, nullptr);
+      }
+    }
+    case absyn::LT_OP:
+      rel_op = tree::RelOp::LT_OP;
+      break;
+    case absyn::LE_OP:
+      rel_op = tree::RelOp::LE_OP;
+      break;
+    case absyn::GT_OP:
+      rel_op = tree::RelOp::GT_OP;
+      break;
+    case absyn::GE_OP:
+      rel_op = tree::RelOp::GE_OP;
+      break;
+    case absyn::ABSYN_OPER_COUNT:
+      rel_op = tree::RelOp::REL_OPER_COUNT;
+      break;
+    }
+
+    if (!cjump_stm) {
+      cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
+                                     right->exp_->UnEx(), nullptr, nullptr);
+    }
+    tr::PatchList true_list = tr::PatchList({&(cjump_stm->true_label_)});
+    tr::PatchList false_list = tr::PatchList({&(cjump_stm->false_label_)});
+    return new tr::ExpAndTy(new tr::CxExp(true_list, false_list, cjump_stm),
+                            type::IntTy::Instance());
   }
 }
 
@@ -473,10 +593,17 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     current_stm = static_cast<tree::SeqStm *>(current_stm->right_);
   }
 
-  current_stm->right_ = tr::getVoidStm();
   tr::ExpAndTy *last_exp_and_ty =
       last_exp->Translate(venv, tenv, level, label, errormsg);
-  tree::Exp *exp = new tree::EseqExp(stm, last_exp_and_ty->exp_->UnEx());
+
+  tree::Exp *exp = nullptr;
+  if (stm->left_) {
+    current_stm->right_ = tr::getVoidStm();
+    exp = new tree::EseqExp(stm, last_exp_and_ty->exp_->UnEx());
+  } else {
+    exp = last_exp_and_ty->exp_->UnEx();
+  }
+
   // The type and return exp of SeqExp is the type and return exp of the last
   // expression
   return new tr::ExpAndTy(new tr::ExExp(exp), last_exp_and_ty->ty_);
@@ -540,10 +667,7 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // Treat e1 as a Cx (apply unCx to e1)
   tr::Cx test_cx = test_exp_and_ty->exp_->UnCx(errormsg);
   test_cx.trues_ = tr::PatchList({&t});
-  // TODO: String comparison
-  // For string equal just calls runtime –system function stringEqual
-  // For string unequal just calls runtime –system function stringEqual then
-  // complements the result
+  test_cx.falses_ = tr::PatchList({&f});
 
   if (!elsee_) {
     // no else
@@ -692,9 +816,9 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   //      if i <= limit goto Loop
   // done:
   temp::Temp *limit = temp::TempFactory::NewTemp();
-  // auto loop_i_entry = venv->Look(var_);
-  // TODO: get loop_i in (frame::InRegAccess*)loop_i_entry->access_->access_
-  temp::Temp *loop_i = temp::TempFactory::NewTemp();
+  env::VarEntry *loop_i_entry = static_cast<env::VarEntry *>(venv->Look(var_));
+  temp::Temp *loop_i =
+      (static_cast<frame::InRegAccess *>(loop_i_entry->access_->access_))->reg;
   temp::Label *loop_label = temp::LabelFactory::NewLabel();
   temp::Label *body_label = temp::LabelFactory::NewLabel();
   temp::Label *done_label = temp::LabelFactory::NewLabel();
@@ -899,10 +1023,23 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   for (absyn::FunDec *function : functions_->GetList()) {
 
     // get FunEntry
-    env::FunEntry *entry = static_cast<env::FunEntry *>(venv->Look(function->name_));
+    env::FunEntry *entry =
+        static_cast<env::FunEntry *>(venv->Look(function->name_));
 
     /* TODO: Put your lab5 code here */
-    // TODO: Calls upon tr::Level::NewLevel in processing a function header
+    // build escape list of function formal parameters
+    std::list<bool> formal_escapes;
+    for (Field *param : function->params_->GetList()) {
+      formal_escapes.push_back(param->escape_);
+    }
+
+    // FunctionDec::Translate creates a new “nesting level” for each function
+    // by calling tr::Level::NewLevel()
+    // Semant keeps this level in its FunEntry
+    tr::Level *function_level =
+        new tr::Level(level, entry->label_, formal_escapes);
+    // Suppose function f(x,y) is nesting inside function g (Level for g is
+    // levelg) call tr::Level::NewLevel(levelg, f, {false, false})
 
     venv->BeginScope();
 
@@ -911,25 +1048,35 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     type::TyList *formals_ty =
         function->params_->MakeFormalTyList(tenv, errormsg);
 
+    std::list<tr::Access *> *access_list = function_level->Formals();
     // entering params as env::VarEntry
     auto formal_ty = formals_ty->GetList().cbegin();
+    auto access = access_list->cbegin();
     for (absyn::Field *param : function->params_->GetList()) {
-      venv->Enter(param->name_, new env::VarEntry(*formal_ty));
+      venv->Enter(param->name_, new env::VarEntry(*access, *formal_ty));
       ++formal_ty;
+      ++access;
     }
 
-    // TODO
-    //    type::Ty *body_ty = function->body_->SemAnalyze(venv, tenv,
-    //    labelcount, errormsg);
-    //    // check if body_ty is same as result_ty
-    //    if(!body_ty->IsSameType(result_ty)){
-    //      errormsg->Error(pos_, "procedure returns value");
-    //    }
+    // pass function level to body
+    tr::ExpAndTy *body_exp_and_ty = function->body_->Translate(
+        venv, tenv, function_level, entry->label_, errormsg);
+    // check if body_ty is same as result_ty
+    if (!body_exp_and_ty->ty_->IsSameType(result_ty)) {
+      errormsg->Error(pos_, "procedure returns value");
+    }
 
     venv->EndScope();
 
-    // TODO: calculate and return tr::exp
+    // Calls procEntryExit1 to remember a ProcFrag
+    frags->PushBack(new frame::ProcFrag(
+        frame::ProcEntryExit1(
+            function_level->frame_,
+            new tree::MoveStm(new tree::TempExp(reg_manager->ReturnValue()),
+                              body_exp_and_ty->exp_->UnEx())),
+        function_level->frame_));
   }
+  return tr::getVoidExp();
 }
 
 tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -969,7 +1116,10 @@ tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       errormsg->Error(pos_, "init should not be nil without type specified");
       return new tr::NxExp(tr::getVoidStm());
     }
+    // creates a “new location” tr::Access for each variable at level level
+    // by calling tr::Access::AllocLocal(level, escape_);
     tr::Access *access = tr::Access::AllocLocal(level, escape_);
+    // Semant records this tr::Access in its VarEntry
     venv->Enter(var_, new env::VarEntry(access, init_ty->ActualTy()));
     return new tr::NxExp(new tree::MoveStm(
         access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer())),
@@ -981,7 +1131,7 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                             tr::Level *level, temp::Label *label,
                             err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
-  for(NameAndTy* type : types_->GetList()){
+  for (NameAndTy *type : types_->GetList()) {
     // check if two types have the same name
     // check only in this declaration list not in environment because
     // only two types with the same name in the same (consecutive) batch of
@@ -996,28 +1146,31 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
   }
 
-  for(NameAndTy* type : types_->GetList()){
+  for (NameAndTy *type : types_->GetList()) {
     // find name_ in tenv
-    type::NameTy *name_ty = static_cast<type::NameTy *>(tenv->Look(type->name_));
+    type::NameTy *name_ty =
+        static_cast<type::NameTy *>(tenv->Look(type->name_));
 
-    // modify the ty_ field of the type::NameTy class in the tenv for which is NULL now
+    // modify the ty_ field of the type::NameTy class in the tenv for which is
+    // NULL now
     name_ty->ty_ = type->ty_->Translate(tenv, errormsg);
 
     // doesn't get type
-    if(!name_ty->ty_){
+    if (!name_ty->ty_) {
       errormsg->Error(pos_, "undefined type %s", type->name_);
       break;
     }
 
     // check if type declarations form illegal cycle from current one
     type::Ty *tmp = tenv->Look(type->name_), *next, *start = tmp;
-    while(tmp){
+    while (tmp) {
 
       // break if not a name type
-      if(typeid(*tmp) != typeid(type::NameTy)) break;
+      if (typeid(*tmp) != typeid(type::NameTy))
+        break;
 
       next = (static_cast<type::NameTy *>(tmp))->ty_;
-      if(next == start){
+      if (next == start) {
         errormsg->Error(pos_, "illegal type cycle");
         return tr::getVoidExp();
       }
@@ -1032,7 +1185,7 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
   type::Ty *type = tenv->Look(name_);
-  if(!type){
+  if (!type) {
     errormsg->Error(pos_, "undefined type %s", name_->Name().data());
     return type::NilTy::Instance();
   }
@@ -1048,7 +1201,7 @@ type::Ty *RecordTy::Translate(env::TEnvPtr tenv,
 type::Ty *ArrayTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
   type::Ty *type = tenv->Look(array_);
-  if(!type){
+  if (!type) {
     errormsg->Error(pos_, "undefined type %s", array_->Name().data());
     return type::NilTy::Instance();
   }
