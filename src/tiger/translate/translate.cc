@@ -698,8 +698,10 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // If e1 then e2 else e3
   // if(condition) jump t; else jump f;
   // t: e2, f: e3
+  DBG("Start translate test_exp_and_ty");
   tr::ExpAndTy *test_exp_and_ty =
       test_->Translate(venv, tenv, level, label, errormsg);
+  DBG("Start translate then_exp_and_ty");
   tr::ExpAndTy *then_exp_and_ty =
       then_->Translate(venv, tenv, level, label, errormsg);
   type::Ty *thenTy = then_exp_and_ty->ty_;
@@ -718,8 +720,9 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
   // Treat e1 as a Cx (apply unCx to e1)
   tr::Cx test_cx = test_exp_and_ty->exp_->UnCx(errormsg);
-  test_cx.trues_ = tr::PatchList({&t});
-  test_cx.falses_ = tr::PatchList({&f});
+
+  test_cx.trues_.DoPatch(t);
+  test_cx.falses_.DoPatch(f);
 
   if (!elsee_) {
     // no else
@@ -803,8 +806,8 @@ tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   temp::Label *bodyLabel = temp::LabelFactory::NewLabel();
   tr::Cx test_cx = test_exp_and_ty->exp_->UnCx(errormsg);
 
-  test_cx.trues_ = tr::PatchList({&bodyLabel});
-  test_cx.falses_ = tr::PatchList({&doneLabel});
+  test_cx.trues_.DoPatch(bodyLabel);
+  test_cx.falses_.DoPatch(doneLabel);
 
   //  test:
   //    if not(condition) goto done
@@ -1205,6 +1208,7 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                             err::ErrorMsg *errormsg) const {
   DBG("Start translate TypeDec\n");
   /* TODO: Put your lab5 code here */
+  DBG("Start first pass");
   for (NameAndTy *type : types_->GetList()) {
     // check if two types have the same name
     // check only in this declaration list not in environment because
@@ -1220,6 +1224,7 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
   }
 
+  DBG("Start second pass");
   for (NameAndTy *type : types_->GetList()) {
     // find name_ in tenv
     type::NameTy *name_ty =
@@ -1234,6 +1239,8 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       errormsg->Error(pos_, "undefined type %s", type->name_);
       break;
     }
+
+    DBG("name_ty->sym_ %s, type name %s", name_ty->sym_->Name().data(), type->name_->Name().data());
 
     // check if type declarations form illegal cycle from current one
     type::Ty *tmp = tenv->Look(type->name_), *next, *start = tmp;
