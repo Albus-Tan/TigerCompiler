@@ -10,6 +10,18 @@
 #include "tiger/frame/frame.h"
 #include "tiger/semant/types.h"
 
+#define DEBUG_TRANSLATION
+
+#ifdef DEBUG_TRANSLATION
+#define DBG(format, ...) fprintf(stderr, \
+"[DEBUG](%s, %s(), Line %d): " \
+, __FILE__, __PRETTY_FUNCTION__, __LINE__);     \
+fprintf(stderr, format"\r\n", ##__VA_ARGS__)
+#else
+#define DBG(format, ...)  do {} while (0)
+#endif
+
+
 namespace tr {
 
 class Exp;

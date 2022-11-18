@@ -130,14 +130,19 @@ public:
 };
 
 void ProgTr::Translate() {
+
+  DBG("Start Translation\n");
+
   FillBaseTEnv();
   FillBaseVEnv();
   /* TODO: Put your lab5 code here */
   temp::Label *main_label_ = temp::LabelFactory::NamedLabel("tigermain");
   main_level_ =
       std::make_unique<Level>(nullptr, main_label_, std::list<bool>());
-  absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
+
+  tr::ExpAndTy *main = absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
                          main_label_, errormsg_.get());
+  frags->PushBack(new frame::ProcFrag(main->exp_->UnNx(), main_level_->frame_));
 }
 
 // TODO may have bugs
@@ -177,8 +182,26 @@ tree::Exp *Level::StaticLink(Level *targetLevel) {
   return framePtr;
 }
 
-// TODO
-std::list<Access *> *Level::Formals() { return nullptr; }
+std::list<Access *> *Level::Formals() {
+  DBG("Step in");
+  std::list<frame::Access *> *formal_list = frame_->formals_;
+  DBG("std::list<frame::Access *> *formal_list get");
+  std::list<tr::Access *> *formal_list_with_level = new std::list<tr::Access *>();
+  DBG("std::list<tr::Access *> *formal_list_with_level newed");
+  bool first = true;
+  for(frame::Access *formal : *formal_list){
+    if(first){
+      // skip the first para static link
+      DBG("skip the first para static link");
+      first = false;
+      continue;
+    }
+    DBG("formal_list_with_level push back para");
+    formal_list_with_level->push_back(new tr::Access(this, formal));
+  }
+  DBG("std::list<tr::Access *> *formal_list_with_level built");
+  return formal_list_with_level;
+}
 
 // tr::Level::NewLevel adds an extra element to the formal parameter list and
 // calls formals.push_front(true); NewFrame(label, formals);
@@ -198,6 +221,7 @@ tr::ExpAndTy *AbsynTree::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  DBG("Start translate AbsynTree\n");
   return root_->Translate(venv, tenv, level, label, errormsg);
 }
 
@@ -205,6 +229,8 @@ tr::ExpAndTy *SimpleVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  DBG("Start translate SimpleVar\n");
+
   env::EnvEntry *entry = venv->Look(sym_);
   if (entry && typeid(*entry) == typeid(env::VarEntry)) {
     env::VarEntry *var_entry = static_cast<env::VarEntry *>(entry);
@@ -226,6 +252,8 @@ tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   tr::Level *level, temp::Label *label,
                                   err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
+  DBG("Start translate FieldVar\n");
+
   // check if var (lvalue) is record
   tr::ExpAndTy *exp_and_ty =
       var_->Translate(venv, tenv, level, label, errormsg);
@@ -256,6 +284,9 @@ tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *SubscriptVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                       tr::Level *level, temp::Label *label,
                                       err::ErrorMsg *errormsg) const {
+
+  DBG("Start translate SubscriptVar\n");
+
   /* TODO: Put your lab5 code here */
   tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
   tr::ExpAndTy *subscript =
@@ -279,6 +310,7 @@ tr::ExpAndTy *SubscriptVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *VarExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate VarExp\n");
   /* TODO: Put your lab5 code here */
   return var_->Translate(venv, tenv, level, label, errormsg);
 }
@@ -286,6 +318,7 @@ tr::ExpAndTy *VarExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *NilExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate NilExp\n");
   /* TODO: Put your lab5 code here */
   return new tr::ExpAndTy(new tr::ExExp(new tree::ConstExp(0)),
                           type::NilTy::Instance());
@@ -294,6 +327,7 @@ tr::ExpAndTy *NilExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *IntExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate IntExp\n");
   /* TODO: Put your lab5 code here */
   return new tr::ExpAndTy(new tr::ExExp(new tree::ConstExp(val_)),
                           type::IntTy::Instance());
@@ -302,6 +336,7 @@ tr::ExpAndTy *IntExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *StringExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
+  DBG("Start translate StringExp\n");
   /* TODO: Put your lab5 code here */
   // Make a new label lab
   temp::Label *lab = temp::LabelFactory::NewLabel();
@@ -316,6 +351,7 @@ tr::ExpAndTy *StringExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  tr::Level *level, temp::Label *label,
                                  err::ErrorMsg *errormsg) const {
+  DBG("Start translate CallExp\n");
   /* TODO: Put your lab5 code here */
   // check if function is defined
   env::EnvEntry *entry = venv->Look(func_);
@@ -372,6 +408,7 @@ tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                tr::Level *level, temp::Label *label,
                                err::ErrorMsg *errormsg) const {
+  DBG("Start translate OpExp\n");
   /* TODO: Put your lab5 code here */
   tr::ExpAndTy *left = left_->Translate(venv, tenv, level, label, errormsg);
   tr::ExpAndTy *right = right_->Translate(venv, tenv, level, label, errormsg);
@@ -482,7 +519,7 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
-
+  DBG("Start translate RecordExp\n");
   // check if record type is defined
   type::Ty *type = tenv->Look(typ_);
   if (type && typeid(*(type->ActualTy())) == typeid(type::RecordTy)) {
@@ -571,6 +608,7 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate SeqExp\n");
   /* TODO: Put your lab5 code here */
   // get the last expression
   std::list<absyn::Exp *> exp_list = seq_->GetList();
@@ -578,31 +616,38 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   exp_list.pop_back();
 
   if (exp_list.empty()) {
+    DBG("exp_list has only one element");
     // only one exp in seq_->GetList()
     tr::ExpAndTy *last_exp_and_ty =
         last_exp->Translate(venv, tenv, level, label, errormsg);
     return new tr::ExpAndTy(last_exp_and_ty->exp_, last_exp_and_ty->ty_);
   }
 
-  tree::SeqStm *stm = new tree::SeqStm(nullptr, nullptr);
+  tree::SeqStm *stm = nullptr;
   tree::SeqStm *current_stm = stm;
+  bool first = true;
   for (absyn::Exp *exp : exp_list) {
-    tr::ExpAndTy *exp_and_ty =
-        exp->Translate(venv, tenv, level, label, errormsg);
-    current_stm->left_ = exp_and_ty->exp_->UnNx();
-    current_stm = static_cast<tree::SeqStm *>(current_stm->right_);
+    if(first){
+      first = false;
+      tr::ExpAndTy *exp_and_ty =
+          exp->Translate(venv, tenv, level, label, errormsg);
+      current_stm = stm = new tree::SeqStm(exp_and_ty->exp_->UnNx(), nullptr);
+    } else {
+      tr::ExpAndTy *exp_and_ty =
+          exp->Translate(venv, tenv, level, label, errormsg);
+      current_stm->right_ = new tree::SeqStm(exp_and_ty->exp_->UnNx(), nullptr);
+      current_stm = static_cast<tree::SeqStm *>(current_stm->right_);
+    }
   }
 
   tr::ExpAndTy *last_exp_and_ty =
       last_exp->Translate(venv, tenv, level, label, errormsg);
 
   tree::Exp *exp = nullptr;
-  if (stm->left_) {
-    current_stm->right_ = tr::getVoidStm();
-    exp = new tree::EseqExp(stm, last_exp_and_ty->exp_->UnEx());
-  } else {
-    exp = last_exp_and_ty->exp_->UnEx();
-  }
+  current_stm->right_ = tr::getVoidStm();
+  exp = new tree::EseqExp(stm, last_exp_and_ty->exp_->UnEx());
+
+  DBG("Finish translate SeqExp\n");
 
   // The type and return exp of SeqExp is the type and return exp of the last
   // expression
@@ -612,6 +657,7 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *AssignExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
                                    err::ErrorMsg *errormsg) const {
+  DBG("Start translate AssignExp\n");
   /* TODO: Put your lab5 code here */
   tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
   tr::ExpAndTy *exp = exp_->Translate(venv, tenv, level, label, errormsg);
@@ -641,6 +687,7 @@ tr::ExpAndTy *AssignExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                tr::Level *level, temp::Label *label,
                                err::ErrorMsg *errormsg) const {
+  DBG("Start translate IfExp\n");
   /* TODO: Put your lab5 code here */
 
   // If e1 then e2 else e3
@@ -729,7 +776,7 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   tr::Level *level, temp::Label *label,
                                   err::ErrorMsg *errormsg) const {
-
+  DBG("Start translate WhileExp\n");
   /* TODO: Put your lab5 code here */
 
   temp::Label *doneLabel = temp::LabelFactory::NewLabel();
@@ -780,6 +827,7 @@ tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate ForExp\n");
   /* TODO: Put your lab5 code here */
   // add id (readonly) to venv
   venv->BeginScope();
@@ -881,6 +929,7 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *BreakExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   tr::Level *level, temp::Label *label,
                                   err::ErrorMsg *errormsg) const {
+  DBG("Start translate BreakExp\n");
   /* TODO: Put your lab5 code here */
   // A break statement simply jump to label
   // TODO: why do we need both std::vector<temp::Label *> ?? and tree::NameExp
@@ -893,6 +942,7 @@ tr::ExpAndTy *BreakExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *LetExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
+  DBG("Start translate LetExp\n");
   /* TODO: Put your lab5 code here */
   venv->BeginScope();
   tenv->BeginScope();
@@ -931,6 +981,7 @@ tr::ExpAndTy *LetExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   tr::Level *level, temp::Label *label,
                                   err::ErrorMsg *errormsg) const {
+  DBG("Start translate ArrayExp\n");
   /* TODO: Put your lab5 code here */
   // check if array type is defined
   type::Ty *type = tenv->Look(typ_);
@@ -977,6 +1028,7 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::ExpAndTy *VoidExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  tr::Level *level, temp::Label *label,
                                  err::ErrorMsg *errormsg) const {
+  DBG("Start translate VoidExp\n");
   /* TODO: Put your lab5 code here */
   return tr::getVoidExpAndVoidTy();
 }
@@ -985,11 +1037,13 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                 tr::Level *level, temp::Label *label,
                                 err::ErrorMsg *errormsg) const {
 
+  DBG("Start translate FunctionDec\n");
   // For FunctionDec Node there are two passes for its children nodes
 
   // First pass
   // Only recursive functions themselves are entered into the venv with their
   // prototypes function name, types of formal parameters, type of return value
+  DBG("Start first pass");
   for (absyn::FunDec *function : functions_->GetList()) {
 
     temp::Label *function_label =
@@ -1020,6 +1074,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // Trans the body using the new environment
   // The formal parameters are processed again
   // This time entering params as env::VarEntrys
+  DBG("Start second pass");
   for (absyn::FunDec *function : functions_->GetList()) {
 
     // get FunEntry
@@ -1027,12 +1082,14 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
         static_cast<env::FunEntry *>(venv->Look(function->name_));
 
     /* TODO: Put your lab5 code here */
+    DBG("Start build escape list");
     // build escape list of function formal parameters
     std::list<bool> formal_escapes;
     for (Field *param : function->params_->GetList()) {
       formal_escapes.push_back(param->escape_);
     }
 
+    DBG("Creating new nesting level");
     // FunctionDec::Translate creates a new “nesting level” for each function
     // by calling tr::Level::NewLevel()
     // Semant keeps this level in its FunEntry
@@ -1048,6 +1105,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     type::TyList *formals_ty =
         function->params_->MakeFormalTyList(tenv, errormsg);
 
+    DBG("Start entering params as env::VarEntry");
     std::list<tr::Access *> *access_list = function_level->Formals();
     // entering params as env::VarEntry
     auto formal_ty = formals_ty->GetList().cbegin();
@@ -1058,6 +1116,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       ++access;
     }
 
+    DBG("Start translating body");
     // pass function level to body
     tr::ExpAndTy *body_exp_and_ty = function->body_->Translate(
         venv, tenv, function_level, entry->label_, errormsg);
@@ -1068,6 +1127,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
     venv->EndScope();
 
+    DBG("Calls procEntryExit1 to remember a ProcFrag");
     // Calls procEntryExit1 to remember a ProcFrag
     frags->PushBack(new frame::ProcFrag(
         frame::ProcEntryExit1(
@@ -1082,6 +1142,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                            tr::Level *level, temp::Label *label,
                            err::ErrorMsg *errormsg) const {
+  DBG("Start translate VarDec\n");
   /* TODO: Put your lab5 code here */
   tr::ExpAndTy *init_exp_and_ty =
       init_->Translate(venv, tenv, level, label, errormsg);
@@ -1130,6 +1191,7 @@ tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                             tr::Level *level, temp::Label *label,
                             err::ErrorMsg *errormsg) const {
+  DBG("Start translate TypeDec\n");
   /* TODO: Put your lab5 code here */
   for (NameAndTy *type : types_->GetList()) {
     // check if two types have the same name
@@ -1183,6 +1245,7 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 }
 
 type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
+  DBG("Start translate NameTy\n");
   /* TODO: Put your lab5 code here */
   type::Ty *type = tenv->Look(name_);
   if (!type) {
@@ -1194,11 +1257,13 @@ type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
 
 type::Ty *RecordTy::Translate(env::TEnvPtr tenv,
                               err::ErrorMsg *errormsg) const {
+  DBG("Start translate RecordTy\n");
   /* TODO: Put your lab5 code here */
   return new type::RecordTy(record_->MakeFieldList(tenv, errormsg));
 }
 
 type::Ty *ArrayTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
+  DBG("Start translate ArrayTy\n");
   /* TODO: Put your lab5 code here */
   type::Ty *type = tenv->Look(array_);
   if (!type) {

@@ -11,7 +11,12 @@ int X64Frame::AllocLocal() {
   return offset_;
 }
 
-X64Frame::X64Frame(temp::Label *name, std::list<bool> formals){}
+X64Frame::X64Frame(temp::Label *name, std::list<bool> formals): Frame(name){
+  formals_ = new std::list<frame::Access *>();
+  for(auto formal_escape : formals){
+    formals_->push_back(frame::Access::AllocLocal(this, formal_escape));
+  }
+}
 
 std::list<frame::Access *> *X64Frame::Formals() { return nullptr; }
 
