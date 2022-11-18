@@ -10,7 +10,7 @@
 namespace frame {
 class X64RegManager : public RegManager {
   /* TODO: Put your lab5 code here */
-
+public:
   enum X64Reg {
     RAX = 0,
     RBX,

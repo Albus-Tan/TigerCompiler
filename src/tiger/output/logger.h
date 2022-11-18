@@ -44,7 +44,7 @@ public:
 #ifdef NDEBUG
 #define TigerLog NullLogger().Log
 #else
-#define TigerLog Logger(stdout).Log
+#define TigerLog Logger(stderr).Log
 #endif
 
 #endif // TIGER_COMPILER_LOGGER_H

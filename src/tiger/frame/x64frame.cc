@@ -1,3 +1,4 @@
+#include <sstream>
 #include "tiger/frame/x64frame.h"
 #include "frame.h"
 
@@ -189,8 +190,21 @@ assem::InstrList *ProcEntryExit2(assem::InstrList *body) {
 
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   /* TODO: Put your lab5 code here */
+  // TODO: may have bugs
 
-  return nullptr;
+  // prolog part
+  std::stringstream prologue;
+  const std::string name = temp::LabelFactory::LabelString(frame->name_);
+  const int rsp_offset = frame->Size();
+  prologue << ".set " << name << "_framesize, " << rsp_offset << std::endl;
+  prologue << name << ":" << std::endl;
+  prologue << "subq $" << rsp_offset << ", %rsp" << std::endl;
+
+  // epilog part
+  std::stringstream epilogue;
+  epilogue << "addq $" << rsp_offset << ", %rsp" << std::endl;
+  epilogue << "retq" << std::endl << ".END" << std::endl;
+  return new assem::Proc(prologue.str(), body, epilogue.str());
 }
 
 Access *Access::AllocLocal(Frame *frame, bool escape) {
