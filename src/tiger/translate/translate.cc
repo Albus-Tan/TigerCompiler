@@ -64,11 +64,13 @@ public:
     return new tree::ExpStm(exp_);
   }
   [[nodiscard]] Cx UnCx(err::ErrorMsg *errormsg) override {
+    DBG("Start UnCx\n");
     /* TODO: Put your lab5 code here */
     tree::CjumpStm *stm = new tree::CjumpStm(
         tree::NE_OP, exp_, new tree::ConstExp(0), nullptr, nullptr);
-    std::list<temp::Label **> true_patch_list{&stm->true_label_};
-    std::list<temp::Label **> false_patch_list{&stm->false_label_};
+    std::list<temp::Label **> true_patch_list{&(stm->true_label_)};
+    std::list<temp::Label **> false_patch_list{&(stm->false_label_)};
+    DBG("patch_list built");
     return {PatchList(true_patch_list), PatchList(false_patch_list), stm};
   }
 };
@@ -102,12 +104,15 @@ public:
       : cx_(trues, falses, stm) {}
 
   [[nodiscard]] tree::Exp *UnEx() override {
+    DBG("Start UnEx\n");
     /* TODO: Put your lab5 code here */
     temp::Temp *r = temp::TempFactory::NewTemp();
     temp::Label *t = temp::LabelFactory::NewLabel();
     temp::Label *f = temp::LabelFactory::NewLabel();
+    DBG("Start DoPatch");
     cx_.trues_.DoPatch(t);
     cx_.falses_.DoPatch(f);
+    DBG("Finish DoPatch");
     return new tree::EseqExp(
         new tree::MoveStm(new tree::TempExp(r), new tree::ConstExp(1)),
         new tree::EseqExp(
@@ -984,9 +989,12 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   DBG("Start translate ArrayExp\n");
   /* TODO: Put your lab5 code here */
   // check if array type is defined
+  DBG("Start look typ_ %s in tenv", typ_->Name().data());
   type::Ty *type = tenv->Look(typ_);
+  DBG("Finish look typ_ in tenv");
   if (type && typeid(*(type->ActualTy())) == typeid(type::ArrayTy)) {
 
+    DBG("Start translate size_exp_and_ty");
     // check if size is int
     tr::ExpAndTy *size_exp_and_ty =
         size_->Translate(venv, tenv, level, label, errormsg);
@@ -997,6 +1005,7 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       return new tr::ExpAndTy(tr::getVoidExp(), type::VoidTy::Instance());
     }
 
+    DBG("Start translate init_exp_and_ty");
     // check if type of init is same as array
     type::Ty *arrayTy = static_cast<type::ArrayTy *>(type->ActualTy())->ty_;
     tr::ExpAndTy *init_exp_and_ty =
@@ -1007,6 +1016,7 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       return init_exp_and_ty;
     }
 
+    DBG("Start building args");
     tree::ExpList *args = new tree::ExpList();
     // runtime.c: long *init_array(int size, long init)
     args->Append(size_exp_and_ty->exp_->UnEx());
@@ -1018,8 +1028,10 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
         new tree::MoveStm(new tree::TempExp(r),
                           frame::ExternalCall("init_array", args)),
         new tree::TempExp(r));
+    DBG("Finish building exp");
     return new tr::ExpAndTy(new tr::ExExp(exp), type->ActualTy());
   } else {
+    DBG("undefined array");
     errormsg->Error(pos_, "undefined array %s", typ_);
     return new tr::ExpAndTy(tr::getVoidExp(), type::VoidTy::Instance());
   }
