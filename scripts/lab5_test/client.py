@@ -37,7 +37,7 @@ class Client(Cmd):
             if args[0].startswith('r'):
                 self._debugger.show_registers()
             elif args[0].startswith('t'):
-                self._debugger.show_temper_registers()
+                self._debugger.show_temp_registers()
             elif args[0].startswith('ma'):
                 self._debugger.show_machine_registers()
             elif args[0].startswith('memtable'):
