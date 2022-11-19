@@ -994,7 +994,7 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   DBG("Start look typ_ %s in tenv", typ_->Name().data());
   type::Ty *type = tenv->Look(typ_);
 
-  DBG("Finish look typ_ in tenv, %s", static_cast<type::NameTy *>(type)->sym_->Name().data());
+  DBG("Finish look typ_ in tenv");
   if (type && typeid(*(type->ActualTy())) == typeid(type::ArrayTy)) {
 
     DBG("Start translate size_exp_and_ty");
@@ -1260,9 +1260,8 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
       tmp = next;
     }
-
-    return tr::getVoidExp();
   }
+  return tr::getVoidExp();
 }
 
 type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
