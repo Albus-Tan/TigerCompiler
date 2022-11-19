@@ -853,9 +853,13 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(hi_->pos_, "for exp's range type is not integer");
   }
 
+  temp::Label *loop_label = temp::LabelFactory::NewLabel();
+  temp::Label *body_label = temp::LabelFactory::NewLabel();
+  temp::Label *done_label = temp::LabelFactory::NewLabel();
+
   // check if body produce value
   tr::ExpAndTy *body_exp_and_ty =
-      body_->Translate(venv, tenv, level, label, errormsg);
+      body_->Translate(venv, tenv, level, done_label, errormsg);
   type::Ty *bodyTy = body_exp_and_ty->ty_;
   if (!bodyTy->IsSameType(type::VoidTy::Instance())) {
     errormsg->Error(pos_, "for body should produce no value");
@@ -875,9 +879,6 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   env::VarEntry *loop_i_entry = static_cast<env::VarEntry *>(venv->Look(var_));
   temp::Temp *loop_i =
       (static_cast<frame::InRegAccess *>(loop_i_entry->access_->access_))->reg;
-  temp::Label *loop_label = temp::LabelFactory::NewLabel();
-  temp::Label *body_label = temp::LabelFactory::NewLabel();
-  temp::Label *done_label = temp::LabelFactory::NewLabel();
 
   // init i with lo_
   auto loop_i_init_stmt =
@@ -940,8 +941,6 @@ tr::ExpAndTy *BreakExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   DBG("Start translate BreakExp\n");
   /* TODO: Put your lab5 code here */
   // A break statement simply jump to label
-  // TODO: why do we need both std::vector<temp::Label *> ?? and tree::NameExp
-  //  switch in C
   tree::JumpStm *jump_stm = new tree::JumpStm(
       new tree::NameExp(label), new std::vector<temp::Label *>{label});
   return new tr::ExpAndTy(new tr::NxExp(jump_stm), type::VoidTy::Instance());
