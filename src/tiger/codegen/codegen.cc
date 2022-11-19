@@ -37,7 +37,6 @@ void CodeGen::Codegen() {
   fs_ = frame_->GetLabel() + "_framesize"; // // Frame size label_
   auto instr_list = new assem::InstrList();
 
-  temp::TempList *temp_list = new temp::TempList();
   // Save callee-saved registers
   for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
     PushRegOnStack(*instr_list, callee_save_reg);
@@ -135,11 +134,20 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
-  /* TODO: Put your lab5 code here */
   temp::Temp *src = src_->Munch(instr_list, fs);
-  temp::Temp *dst = dst_->Munch(instr_list, fs);
-  instr_list.Append(new assem::MoveInstr(
-      "movq `s0, `d0", new temp::TempList({dst}), new temp::TempList({src})));
+  if (typeid(*dst_) == typeid(tree::MemExp)){
+    // deal with dst is mem
+    // directly move to mem
+    temp::Temp *dst = ((MemExp *)dst_)->exp_->Munch(instr_list, fs);
+    instr_list.Append(new assem::MoveInstr(
+        "movq `s0, (`s1)", nullptr, new temp::TempList({src, dst})));
+  } else {
+    // dst is reg
+    // if src is mem exp, src_->Munch will deal with this
+    temp::Temp *dst = dst_->Munch(instr_list, fs);
+    instr_list.Append(new assem::MoveInstr(
+        "movq `s0, `d0", new temp::TempList({dst}), new temp::TempList({src})));
+  }
 }
 
 void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
@@ -226,6 +234,7 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
+  // only deal with src is mem
   temp::Temp *reg = temp::TempFactory::NewTemp();
   temp::Temp *exp = exp_->Munch(instr_list, fs);
   instr_list.Append(new assem::OperInstr("movq (`s0), `d0",
