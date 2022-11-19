@@ -10,7 +10,7 @@
 #include "tiger/frame/frame.h"
 #include "tiger/semant/types.h"
 
-//#define DEBUG_TRANSLATION
+#define DEBUG_TRANSLATION
 
 #ifdef DEBUG_TRANSLATION
 #define DBG(format, ...) fprintf(stderr, \

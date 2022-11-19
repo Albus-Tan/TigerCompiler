@@ -993,7 +993,8 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // check if array type is defined
   DBG("Start look typ_ %s in tenv", typ_->Name().data());
   type::Ty *type = tenv->Look(typ_);
-  DBG("Finish look typ_ in tenv");
+
+  DBG("Finish look typ_ in tenv, %s", static_cast<type::NameTy *>(type)->sym_->Name().data());
   if (type && typeid(*(type->ActualTy())) == typeid(type::ArrayTy)) {
 
     DBG("Start translate size_exp_and_ty");
@@ -1219,6 +1220,8 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
         return tr::getVoidExp();
       }
     }
+
+    DBG("Enter tenv type->name_ %s", type->name_->Name().data());
     // Let the body to be NULL at first
     tenv->Enter(type->name_, new type::NameTy(type->name_, nullptr));
   }
