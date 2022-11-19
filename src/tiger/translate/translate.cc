@@ -145,8 +145,9 @@ void ProgTr::Translate() {
   main_level_ =
       std::make_unique<Level>(nullptr, main_label_, std::list<bool>());
 
-  tr::ExpAndTy *main = absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
-                         main_label_, errormsg_.get());
+  tr::ExpAndTy *main =
+      absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
+                             main_label_, errormsg_.get());
   frags->PushBack(new frame::ProcFrag(main->exp_->UnNx(), main_level_->frame_));
 }
 
@@ -191,11 +192,12 @@ std::list<Access *> *Level::Formals() {
   DBG("Step in");
   std::list<frame::Access *> *formal_list = frame_->formals_;
   DBG("std::list<frame::Access *> *formal_list get");
-  std::list<tr::Access *> *formal_list_with_level = new std::list<tr::Access *>();
+  std::list<tr::Access *> *formal_list_with_level =
+      new std::list<tr::Access *>();
   DBG("std::list<tr::Access *> *formal_list_with_level newed");
   bool first = true;
-  for(frame::Access *formal : *formal_list){
-    if(first){
+  for (frame::Access *formal : *formal_list) {
+    if (first) {
       // skip the first para static link
       DBG("skip the first para static link");
       first = false;
@@ -459,65 +461,94 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       return left;
     }
 
-    switch (oper_) {
-    case absyn::AND_OP:
-      // TODO
-      break;
-    case absyn::OR_OP:
-      // TODO
-      break;
-    }
+    if (oper_ == absyn::AND_OP || oper_ == absyn::OR_OP) {
+      temp::Label *second_condition_label = temp::LabelFactory::NewLabel();
+      tr::Cx left_cx = left->exp_->UnCx(errormsg);
+      tr::Cx right_cx = right->exp_->UnCx(errormsg);
 
-    tree::CjumpStm *cjump_stm = nullptr;
-    tree::RelOp rel_op;
-    switch (oper_) {
-    case absyn::EQ_OP:
-    case absyn::NEQ_OP: {
-      rel_op =
-          (oper_ == absyn::EQ_OP) ? tree::RelOp::EQ_OP : tree::RelOp::NE_OP;
-      // for string comparison, call string_equal
-      // String comparison
-      // For string equal just calls runtime –system function stringEqual
-      // For string unequal just calls runtime –system function stringEqual then
-      // complements the result
-      if (left_ty->IsSameType(type::StringTy::Instance())) {
-        tree::ExpList *args = new tree::ExpList();
-        args->Append(left->exp_->UnEx());
-        args->Append(right->exp_->UnEx());
-        // string_equal return 1 for equal, 0 for not
-        cjump_stm = new tree::CjumpStm(
-            rel_op, frame::ExternalCall("string_equal", args),
-            new tree::ConstExp(1), nullptr, nullptr);
-      } else {
+      switch (oper_) {
+      case absyn::AND_OP: {
+        left_cx.trues_.DoPatch(second_condition_label);
+        tr::PatchList true_list = tr::PatchList(right_cx.trues_);
+        tr::PatchList false_list =
+            tr::PatchList::JoinPatch(left_cx.falses_, right_cx.falses_);
+        tree::SeqStm *stm = new tree::SeqStm(
+            left_cx.stm_,
+            new tree::SeqStm(new tree::LabelStm(second_condition_label),
+                             right_cx.stm_));
+        return new tr::ExpAndTy(new tr::CxExp(true_list, false_list, stm),
+                                type::IntTy::Instance());
+        break;
+      }
+
+      case absyn::OR_OP: {
+        left_cx.falses_.DoPatch(second_condition_label);
+        tr::PatchList true_list =
+            tr::PatchList::JoinPatch(left_cx.trues_, right_cx.trues_);
+        tr::PatchList false_list = tr::PatchList(right_cx.falses_);
+        tree::SeqStm *stm = new tree::SeqStm(
+            left_cx.stm_,
+            new tree::SeqStm(new tree::LabelStm(second_condition_label),
+                             right_cx.stm_));
+        return new tr::ExpAndTy(new tr::CxExp(true_list, false_list, stm),
+                                type::IntTy::Instance());
+        break;
+      }
+      }
+
+    } else {
+
+      tree::CjumpStm *cjump_stm = nullptr;
+      tree::RelOp rel_op;
+      switch (oper_) {
+      case absyn::EQ_OP:
+      case absyn::NEQ_OP: {
+        rel_op =
+            (oper_ == absyn::EQ_OP) ? tree::RelOp::EQ_OP : tree::RelOp::NE_OP;
+        // for string comparison, call string_equal
+        // String comparison
+        // For string equal just calls runtime –system function stringEqual
+        // For string unequal just calls runtime –system function stringEqual
+        // then complements the result
+        if (left_ty->IsSameType(type::StringTy::Instance())) {
+          tree::ExpList *args = new tree::ExpList();
+          args->Append(left->exp_->UnEx());
+          args->Append(right->exp_->UnEx());
+          // string_equal return 1 for equal, 0 for not
+          cjump_stm = new tree::CjumpStm(
+              rel_op, frame::ExternalCall("string_equal", args),
+              new tree::ConstExp(1), nullptr, nullptr);
+        } else {
+          cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
+                                         right->exp_->UnEx(), nullptr, nullptr);
+        }
+      }
+      case absyn::LT_OP:
+        rel_op = tree::RelOp::LT_OP;
+        break;
+      case absyn::LE_OP:
+        rel_op = tree::RelOp::LE_OP;
+        break;
+      case absyn::GT_OP:
+        rel_op = tree::RelOp::GT_OP;
+        break;
+      case absyn::GE_OP:
+        rel_op = tree::RelOp::GE_OP;
+        break;
+      case absyn::ABSYN_OPER_COUNT:
+        rel_op = tree::RelOp::REL_OPER_COUNT;
+        break;
+      }
+
+      if (!cjump_stm) {
         cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
                                        right->exp_->UnEx(), nullptr, nullptr);
       }
+      tr::PatchList true_list = tr::PatchList({&(cjump_stm->true_label_)});
+      tr::PatchList false_list = tr::PatchList({&(cjump_stm->false_label_)});
+      return new tr::ExpAndTy(new tr::CxExp(true_list, false_list, cjump_stm),
+                              type::IntTy::Instance());
     }
-    case absyn::LT_OP:
-      rel_op = tree::RelOp::LT_OP;
-      break;
-    case absyn::LE_OP:
-      rel_op = tree::RelOp::LE_OP;
-      break;
-    case absyn::GT_OP:
-      rel_op = tree::RelOp::GT_OP;
-      break;
-    case absyn::GE_OP:
-      rel_op = tree::RelOp::GE_OP;
-      break;
-    case absyn::ABSYN_OPER_COUNT:
-      rel_op = tree::RelOp::REL_OPER_COUNT;
-      break;
-    }
-
-    if (!cjump_stm) {
-      cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
-                                     right->exp_->UnEx(), nullptr, nullptr);
-    }
-    tr::PatchList true_list = tr::PatchList({&(cjump_stm->true_label_)});
-    tr::PatchList false_list = tr::PatchList({&(cjump_stm->false_label_)});
-    return new tr::ExpAndTy(new tr::CxExp(true_list, false_list, cjump_stm),
-                            type::IntTy::Instance());
   }
 }
 
@@ -632,7 +663,7 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   tree::SeqStm *current_stm = stm;
   bool first = true;
   for (absyn::Exp *exp : exp_list) {
-    if(first){
+    if (first) {
       first = false;
       tr::ExpAndTy *exp_and_ty =
           exp->Translate(venv, tenv, level, label, errormsg);
@@ -1242,7 +1273,8 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       break;
     }
 
-    DBG("name_ty->sym_ %s, type name %s", name_ty->sym_->Name().data(), type->name_->Name().data());
+    DBG("name_ty->sym_ %s, type name %s", name_ty->sym_->Name().data(),
+        type->name_->Name().data());
 
     // check if type declarations form illegal cycle from current one
     type::Ty *tmp = tenv->Look(type->name_), *next, *start = tmp;
