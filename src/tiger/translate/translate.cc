@@ -884,9 +884,10 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(hi_->pos_, "for exp's range type is not integer");
   }
 
-  temp::Label *loop_label = temp::LabelFactory::NewLabel();
+  // temp::Label *loop_label = temp::LabelFactory::NewLabel();
   temp::Label *body_label = temp::LabelFactory::NewLabel();
   temp::Label *done_label = temp::LabelFactory::NewLabel();
+  temp::Label *inc_label = temp::LabelFactory::NewLabel();
 
   // check if body produce value
   tr::ExpAndTy *body_exp_and_ty =
@@ -896,16 +897,28 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(pos_, "for body should produce no value");
   }
 
-  //  i = lo_
-  //  limit = hi_
-  //  if i > limit goto done
-  // body:
-  //  body
-  //  if i == limit goto done
-  // Loop:	i := i + 1
-  //      body
-  //      if i <= limit goto Loop
-  // done:
+  //    i = lo_
+  //    limit = hi_
+  //    if i > limit goto done
+  //   body:
+  //    body
+  //    if i == limit goto done
+  //   Loop:	i := i + 1
+  //        body
+  //        if i <= limit goto Loop
+  //   done:
+
+  //    i = lo_
+  //    limit = hi_
+  //    if i > limit goto done
+  //   body:
+  //    body
+  //    if i == limit goto done
+  //   inc:
+  //    i := i + 1
+  //    goto body
+  //   done:
+
   temp::Temp *limit = temp::TempFactory::NewTemp();
   env::VarEntry *loop_i_entry = static_cast<env::VarEntry *>(venv->Look(var_));
   temp::Temp *loop_i =
@@ -923,21 +936,16 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       new tree::CjumpStm(tree::RelOp::GT_OP, new tree::TempExp(loop_i),
                          new tree::TempExp(limit), done_label, body_label);
 
+  // if i == limit goto done
+  auto i_eq_limit_cjump_stmt =
+      new tree::CjumpStm(tree::RelOp::EQ_OP, new tree::TempExp(loop_i),
+                         new tree::TempExp(limit), done_label, inc_label);
+
   // i := i + 1
   auto loop_i_increase_stmt = new tree::MoveStm(
       new tree::TempExp(loop_i),
       new tree::BinopExp(tree::BinOp::PLUS_OP, new tree::TempExp(loop_i),
                          new tree::ConstExp(1)));
-
-  // if i == limit goto done
-  auto i_eq_limit_cjump_stmt =
-      new tree::CjumpStm(tree::RelOp::EQ_OP, new tree::TempExp(loop_i),
-                         new tree::TempExp(limit), done_label, loop_label);
-
-  // if i <= limit goto Loop
-  auto i_le_limit_cjump_stmt =
-      new tree::CjumpStm(tree::RelOp::LE_OP, new tree::TempExp(loop_i),
-                         new tree::TempExp(limit), loop_label, done_label);
 
   tree::Stm *stm = new tree::SeqStm(
       loop_i_init_stmt,
@@ -952,15 +960,48 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                       new tree::SeqStm(
                           i_eq_limit_cjump_stmt,
                           new tree::SeqStm(
-                              new tree::LabelStm(loop_label),
+                              new tree::LabelStm(inc_label),
                               new tree::SeqStm(
                                   loop_i_increase_stmt,
                                   new tree::SeqStm(
-                                      body_exp_and_ty->exp_->UnNx(),
-                                      new tree::SeqStm(
-                                          i_le_limit_cjump_stmt,
-                                          new tree::LabelStm(
-                                              done_label)))))))))));
+                                      new tree::JumpStm(
+                                          new tree::NameExp(body_label),
+                                          new std::vector<temp::Label *>(
+                                              {body_label})),
+                                      new tree::LabelStm(done_label))))))))));
+
+  //  // if i == limit goto done
+  //  auto i_eq_limit_cjump_stmt =
+  //      new tree::CjumpStm(tree::RelOp::EQ_OP, new tree::TempExp(loop_i),
+  //                         new tree::TempExp(limit), done_label, loop_label);
+  //
+  //  // if i <= limit goto Loop
+  //  auto i_le_limit_cjump_stmt =
+  //      new tree::CjumpStm(tree::RelOp::LE_OP, new tree::TempExp(loop_i),
+  //                         new tree::TempExp(limit), loop_label, done_label);
+
+  //  tree::Stm *stm = new tree::SeqStm(
+  //      loop_i_init_stmt,
+  //      new tree::SeqStm(
+  //          limit_init_stmt,
+  //          new tree::SeqStm(
+  //              i_gt_limit_cjump_stmt,
+  //              new tree::SeqStm(
+  //                  new tree::LabelStm(body_label),
+  //                  new tree::SeqStm(
+  //                      body_exp_and_ty->exp_->UnNx(),
+  //                      new tree::SeqStm(
+  //                          i_eq_limit_cjump_stmt,
+  //                          new tree::SeqStm(
+  //                              new tree::LabelStm(loop_label),
+  //                              new tree::SeqStm(
+  //                                  loop_i_increase_stmt,
+  //                                  new tree::SeqStm(
+  //                                      body_exp_and_ty->exp_->UnNx(),
+  //                                      new tree::SeqStm(
+  //                                          i_le_limit_cjump_stmt,
+  //                                          new tree::LabelStm(
+  //                                              done_label)))))))))));
 
   venv->EndScope();
   return new tr::ExpAndTy(new tr::NxExp(stm), type::VoidTy::Instance());
