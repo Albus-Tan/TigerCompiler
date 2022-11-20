@@ -514,10 +514,13 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
           tree::ExpList *args = new tree::ExpList();
           args->Append(left->exp_->UnEx());
           args->Append(right->exp_->UnEx());
+          tree::ConstExp *expected = (oper_ == absyn::EQ_OP)
+                                         ? new tree::ConstExp(1)
+                                         : new tree::ConstExp(0);
           // string_equal return 1 for equal, 0 for not
           cjump_stm = new tree::CjumpStm(
-              rel_op, frame::ExternalCall("string_equal", args),
-              new tree::ConstExp(1), nullptr, nullptr);
+              tree::RelOp::EQ_OP, frame::ExternalCall("string_equal", args), expected,
+              nullptr, nullptr);
         } else {
           cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
                                          right->exp_->UnEx(), nullptr, nullptr);
