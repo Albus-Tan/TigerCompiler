@@ -32,27 +32,70 @@ void CodeGen::PopRegFromStack(assem::InstrList &instr_list, temp::Temp *reg) {
       new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
 }
 
+void CodeGen::PushRegToPos(assem::InstrList &instr_list, temp::Temp *pos,
+                           temp::Temp *to_be_push) {
+  frame_->offset_ -= reg_manager->WordSize();
+  instr_list.Append(new assem::OperInstr(
+      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(pos), nullptr, nullptr));
+  instr_list.Append(
+      new assem::OperInstr("movq `s0, (`d0)", new temp::TempList(pos),
+                           new temp::TempList(to_be_push), nullptr));
+}
+
+void CodeGen::PopRegFromPos(assem::InstrList &instr_list, temp::Temp *pos,
+                            temp::Temp *to_be_pop) {
+  instr_list.Append(new assem::OperInstr(
+      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(pos), nullptr, nullptr));
+  instr_list.Append(new assem::OperInstr("movq (`s0), `d0",
+                                         new temp::TempList(to_be_pop),
+                                         new temp::TempList(pos), nullptr));
+}
+
 void CodeGen::Codegen() {
-  /* TODO: Put your lab5 code here */
   fs_ = frame_->GetLabel() + "_framesize"; // // Frame size label_
   auto instr_list = new assem::InstrList();
 
   // Save callee-saved registers
+  auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
+  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+                                          new temp::TempList(pos), nullptr,
+                                          nullptr));
+  instr_list->Append(
+      new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ", `d0",
+                           new temp::TempList(pos), nullptr, nullptr));
   for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
-    PushRegOnStack(*instr_list, callee_save_reg);
+    PushRegToPos(*instr_list, pos, callee_save_reg);
   }
 
+  // Init FP with SP
+  // FP = SP + fs
+  instr_list->Append(new assem::OperInstr(
+      "leaq " + fs_ + "(`s0), `d0",
+      new temp::TempList(reg_manager->FramePointer()),
+      new temp::TempList(reg_manager->StackPointer()), nullptr));
+
+  // Munch
   for (auto stm : traces_->GetStmList()->GetList()) {
     stm->Munch(*instr_list, fs_);
   }
 
   // Restore callee-saved registers
+  auto pos_rbx = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX);
   auto li = reg_manager->CalleeSaves()->GetList();
-  li.reverse();
+  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+                                          new temp::TempList(pos_rbx), nullptr,
+                                          nullptr));
+  instr_list->Append(new assem::OperInstr(
+      "addq $" +
+          std::to_string(frame_->offset_ +
+                         li.size() * reg_manager->WordSize()) +
+          ", `d0",
+      new temp::TempList(pos_rbx), nullptr, nullptr));
   for (auto callee_save_reg : li) {
-    PopRegFromStack(*instr_list, callee_save_reg);
+    PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
   }
-  li.reverse();
 
   assem_instr_ =
       std::make_unique<AssemInstr>(frame::ProcEntryExit2(instr_list));
@@ -135,12 +178,12 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   temp::Temp *src = src_->Munch(instr_list, fs);
-  if (typeid(*dst_) == typeid(tree::MemExp)){
+  if (typeid(*dst_) == typeid(tree::MemExp)) {
     // deal with dst is mem
     // directly move to mem
     temp::Temp *dst = ((MemExp *)dst_)->exp_->Munch(instr_list, fs);
-    instr_list.Append(new assem::MoveInstr(
-        "movq `s0, (`s1)", nullptr, new temp::TempList({src, dst})));
+    instr_list.Append(new assem::MoveInstr("movq `s0, (`s1)", nullptr,
+                                           new temp::TempList({src, dst})));
   } else {
     // dst is reg
     // if src is mem exp, src_->Munch will deal with this
@@ -244,7 +287,18 @@ temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 temp::Temp *TempExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
-  return temp_;
+  if (temp_ != reg_manager->FramePointer()) {
+    return temp_;
+  }
+
+  // modify FP to SP + frame_size since we do not have FP
+  temp::Temp *fp = temp::TempFactory::NewTemp();
+  std::stringstream assem;
+  assem << "leaq " << fs << "(`s0), `d0";
+  instr_list.Append(new assem::OperInstr(
+      assem.str(), new temp::TempList(fp),
+      new temp::TempList(reg_manager->StackPointer()), nullptr));
+  return fp;
 }
 
 temp::Temp *EseqExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
@@ -272,9 +326,11 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  // TODO: may need to save caller and callee saved regs on stack!!!
   // prepare arguments
   // should be listed as “sources” of the instruction
   temp::TempList *arg_regs = args_->MunchArgs(instr_list, fs);
+
   // CALL instruction will trash caller saved registers
   // specifies these registers and as “destinations” of the call
   instr_list.Append(new assem::OperInstr(
