@@ -6,7 +6,7 @@ test_lab1:
   script:
     - rm -rf scripts testdata
     - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-    - make gradelab1 | tee output.log
+    - make gradelab1
 
 test_lab2:
   image: ipadsse302/tigerlabs_score_env
@@ -16,7 +16,7 @@ test_lab2:
   script:
     - rm -rf scripts testdata
     - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-    - make gradelab2 | tee output.log
+    - make gradelab2
 
 test_lab3:
   image: ipadsse302/tigerlabs_score_env
@@ -26,7 +26,7 @@ test_lab3:
   script:
     - rm -rf scripts testdata
     - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-    - make gradelab3 | tee output.log
+    - make gradelab3
 
 test_lab4:
   image: ipadsse302/tigerlabs_score_env
@@ -36,7 +36,7 @@ test_lab4:
   script:
     - rm -rf scripts testdata
     - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-    - make gradelab4 | tee output.log
+    - make gradelab4
 
 test_lab5_part1:
  image: ipadsse302/tigerlabs_score_env
@@ -46,7 +46,7 @@ test_lab5_part1:
  script:
    - rm -rf scripts testdata
    - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-   - make gradelab5-1 | tee output.log
+   - make gradelab5-1
 
 test_lab5:
  image: ipadsse302/tigerlabs_score_env
@@ -56,7 +56,7 @@ test_lab5:
  script:
    - rm -rf scripts testdata
    - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
-   - make gradelab5 | tee output.log
+   - make gradelab5
 
 # test_lab6:
 #  image: ipadsse302/tigerlabs_score_env
