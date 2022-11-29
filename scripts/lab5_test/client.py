@@ -4,9 +4,7 @@ import sys
 from debugger import Debugger
 
 class Client(Cmd):
-    """help
-    这是doc
-    """
+
     prompt = '(tiger) '
     intro = 'Using Tiger Interpreter'
 
