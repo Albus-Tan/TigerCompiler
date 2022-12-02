@@ -1,6 +1,7 @@
 #ifndef TIGER_LIVENESS_LIVENESS_H_
 #define TIGER_LIVENESS_LIVENESS_H_
 
+#include <set>
 #include "tiger/codegen/assem.h"
 #include "tiger/frame/x64frame.h"
 #include "tiger/frame/temp.h"
@@ -67,6 +68,10 @@ private:
   void LiveMap();
   void InterfGraph();
 };
+
+std::set<temp::Temp *> ToSet(const std::list<temp::Temp *>& origin);
+temp::TempList* ToTempList(const std::set<temp::Temp *>& origin);
+bool SameSet(const std::set<temp::Temp *> &first, const std::set<temp::Temp *> &second);
 
 } // namespace live
 
