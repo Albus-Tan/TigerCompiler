@@ -1,4 +1,5 @@
 #include "tiger/liveness/flowgraph.h"
+#include "tiger/codegen/assem.h"
 
 namespace fg {
 
@@ -74,11 +75,22 @@ temp::TempList *OperInstr::Def() const {
 
 temp::TempList *LabelInstr::Use() const { return new temp::TempList(); }
 
+void LabelInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
+}
+
 temp::TempList *MoveInstr::Use() const {
   if (src_)
     return src_;
   else
     return new temp::TempList();
+}
+void MoveInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
+  if(src_){
+    src_->ReplaceTemp(old_temp, new_temp);
+  }
+  if(dst_){
+    dst_->ReplaceTemp(old_temp, new_temp);
+  }
 }
 
 temp::TempList *OperInstr::Use() const {
@@ -86,5 +98,13 @@ temp::TempList *OperInstr::Use() const {
     return src_;
   else
     return new temp::TempList();
+}
+void OperInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
+  if(src_){
+    src_->ReplaceTemp(old_temp, new_temp);
+  }
+  if(dst_){
+    dst_->ReplaceTemp(old_temp, new_temp);
+  }
 }
 } // namespace assem

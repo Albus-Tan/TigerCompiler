@@ -56,6 +56,8 @@ private:
   live::INodeListPtr coalesced_nodes;
   // Containing temporaries removed from the graph
   live::INodeListPtr select_stack;
+  // nodes colored
+  live::INodeListPtr colored_nodes;
 
   /* Move sets */
 
@@ -106,13 +108,13 @@ private:
   col::Result AssignColor();
   void RewriteProgram();
 
-  int K;  // TODO: init K
+  assem::InstrList *RemoveRedundantMove(temp::Map *coloring);
+  bool IsRedundant(assem::Instr *instr, temp::Map *coloring);
+
+  int K;
 
 public:
-  RegAllocator(frame::Frame *frame, std::unique_ptr<cg::AssemInstr> assem_instr)
-      : frame_(frame), assem_instr_(assem_instr->GetInstrList()) {
-    Init();
-  }
+  RegAllocator(frame::Frame *frame, std::unique_ptr<cg::AssemInstr> assem_instr);
   void RegAlloc();
   std::unique_ptr<ra::Result> TransferResult() { return std::move(result_); }
 };

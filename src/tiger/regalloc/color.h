@@ -19,14 +19,16 @@ struct Result {
 class Color {
   /* TODO: Put your lab6 code here */
 private:
-  std::unique_ptr<col::Result> result_;
   temp::Map *coloring;
   std::set<std::string *> okColors;
 public:
   Color();
-  void RemoveOkColor(temp::Temp *t);
-
-  std::unique_ptr<col::Result> BuildAndTransferResult();
+  void InitOkColors();
+  void RemoveOkColor(live::INodePtr n);
+  bool OkColorsEmpty();
+  bool AssignColor(live::INodePtr n);
+  void AssignSameColor(live::INodePtr color_src, live::INodePtr color_dst);
+  col::Result BuildAndGetResult();
 };
 } // namespace col
 

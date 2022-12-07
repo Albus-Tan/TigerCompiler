@@ -95,11 +95,11 @@ void LiveGraphFactory::LiveMap() {
       std::set<temp::Temp *> in_set = ToSet(use->GetList());
       std::set<temp::Temp *> def_set = ToSet(def->GetList());
       std::set<temp::Temp *> out_set_ori = ToSet(out_->Look(node)->GetList());
-      std::set<temp::Temp *> diff_res;
+      std::list<temp::Temp *> diff;
       std::set_difference(out_set_ori.begin(), out_set_ori.end(),
                           def_set.begin(), def_set.end(),
-                          back_inserter(diff_res));
-      in_set.merge(diff_res);
+                          back_inserter(diff));
+      in_set.merge(ToSet(diff));
 
       std::set<temp::Temp *> in_set_ori = ToSet(in_->Look(node)->GetList());
       // check if in_set and out_set same
@@ -170,12 +170,11 @@ void LiveGraphFactory::InterfGraph() {
         INodePtr def_node = temp_node_map_->Look(def);
         auto out_set = ToSet(out_->Look(node)->GetList());
         auto use_set = ToSet(instr->Use()->GetList());
-        std::set<temp::Temp *> diff_res;  // out - use
+        std::list<temp::Temp *> b_list;  // out - use
         std::set_difference(out_set.begin(), out_set.end(),
                             use_set.begin(), use_set.end(),
-                            back_inserter(diff_res));
-        auto b_list = ToTempList(diff_res);
-        for(auto b : b_list->GetList()){
+                            back_inserter(b_list));
+        for(auto b : b_list){
           INodePtr b_node = temp_node_map_->Look(b);
           live_graph_.interf_graph->AddEdge(def_node, b_node);
           live_graph_.interf_graph->AddEdge(b_node, def_node);
