@@ -21,6 +21,7 @@ public:
 
   temp::Temp *GetRegister(int regno) { return regs_[regno]; }
 
+  // FIXME: TYPO!!!!! should be RSP
   /**
    * Get general-purpose registers except RSI
    * NOTE: returned temp list should be in the order of calling convention

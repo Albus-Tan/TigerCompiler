@@ -24,9 +24,10 @@ std::list<frame::Access *> *X64Frame::Formals() { return nullptr; }
 /* TODO: Put your lab5 code here */
 temp::TempList *X64RegManager::Registers() {
   /* TODO: Put your lab5 code here */
-  // except rsi
+  // !!!typo!!! should be RSP not RSI
+  // except rsp
   /**
-   * Get general-purpose registers except RSI
+   * Get general-purpose registers except RSP
    * NOTE: returned temp list should be in the order of calling convention
    * @return general-purpose registers
    */
@@ -37,7 +38,7 @@ temp::TempList *X64RegManager::Registers() {
       regs_[RDX],
       regs_[RDI],
       regs_[RBP],
-      regs_[RSP],
+      regs_[RSI],
       regs_[R8],
       regs_[R9],
       regs_[R10],

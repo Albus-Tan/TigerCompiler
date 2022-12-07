@@ -2,16 +2,18 @@
 
 #include "tiger/output/logger.h"
 
-//#define REG_ALLOC_LOG(fmt, args...)                                            \
-//  do {                                                                         \
-//  } while (0);
-
 #define REG_ALLOC_LOG(fmt, args...)                                            \
   do {                                                                         \
-    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-           __FUNCTION__, ##args);                                              \
-    fflush(stdout);                                                            \
   } while (0);
+
+//#define DBG_GRAPH
+
+//#define REG_ALLOC_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+//           __FUNCTION__, ##args);                                              \
+//    fflush(stdout);                                                            \
+//  } while (0);
 
 extern frame::RegManager *reg_manager;
 
@@ -96,6 +98,11 @@ void RegAllocator::LivenessAnalysis() {
   moves = live_graph.moves;
   temp_node_map = live_graph_factory.GetTempNodeMap();
 
+#ifdef DBG_GRAPH
+  interf_graph->Show(stdout, interf_graph->Nodes(),
+                     [&](temp::Temp *t) {  fprintf(stdout, "[t%d]", t->Int()); });
+#endif
+
   worklist_moves = moves;
 }
 void RegAllocator::Build() {
@@ -123,9 +130,10 @@ void RegAllocator::Build() {
     // add temp into precolored or initial
     if (temp_map->Look(node->NodeInfo())) {
       // real register
-      precolored->Union(node);
+      REG_ALLOC_LOG("precolored append temp %d", node->NodeInfo()->Int())
+      precolored->Append(node);
     } else {
-      initial->Union(node);
+      initial->Append(node);
     }
   }
 }
@@ -147,10 +155,14 @@ void RegAllocator::MakeWorklist() {
   REG_ALLOC_LOG("start");
   for (auto n : initial->GetList()) {
     if (*(degree->Look(n)) >= K) {
+      REG_ALLOC_LOG("Add temp %d to spill_worklist, degree %d",
+                    n->NodeInfo()->Int(), *(degree->Look(n)));
       spill_worklist->Union(n);
     } else if (MoveRelated(n)) {
+      REG_ALLOC_LOG("Add temp %d to freeze_worklist", n->NodeInfo()->Int());
       freeze_worklist->Union(n);
     } else {
+      REG_ALLOC_LOG("Add temp %d to simplify_worklist", n->NodeInfo()->Int());
       simplify_worklist->Union(n);
     }
   }
@@ -171,7 +183,7 @@ bool RegAllocator::MoveRelated(live::INodePtr n) {
   return !NodeMoves(n)->GetList().empty();
 }
 void RegAllocator::Simplify() {
-  REG_ALLOC_LOG("start");
+  REG_ALLOC_LOG("start")
   if (simplify_worklist->GetList().empty())
     return;
   // let n ∈ simplifyWorkList
@@ -179,7 +191,12 @@ void RegAllocator::Simplify() {
   // simplifyWorkList ← simplifyWorkList\{n}
   simplify_worklist->DeleteNode(n);
   // push(n, selectStack)
+  REG_ALLOC_LOG("push temp %d on selectStack", n->NodeInfo()->Int())
   select_stack->Prepend(n);
+
+  // FIXME: try
+  spill_worklist->DeleteNode(n);
+
   // forall m ∈ Adjacent(n)
   for (auto m : Adjacent(n)->GetList()) {
     // DecrementDegree(m)
@@ -188,13 +205,19 @@ void RegAllocator::Simplify() {
 }
 void RegAllocator::DecrementDegree(live::INodePtr m) {
 
+  REG_ALLOC_LOG("DecrementDegree temp %d, degree %d", m->NodeInfo()->Int(), *(degree->Look(m)))
+
   if (precolored->Contain(m)) {
+    REG_ALLOC_LOG("DecrementDegree temp %d is precolored", m->NodeInfo()->Int())
     return;
   }
 
   auto d = degree->Look(m);
   // degree->Set(m, new int((*d)-1));
   --(*d);
+
+  REG_ALLOC_LOG("DecrementDegree, after decrease temp %d, degree %d", m->NodeInfo()->Int(), *(degree->Look(m)))
+
   if (*d == K) {
     // EnableMoves(m ∪ Adjcent(m))
     live::INodeListPtr m_set = new live::INodeList();
@@ -203,11 +226,13 @@ void RegAllocator::DecrementDegree(live::INodePtr m) {
     delete m_set;
 
     // spillWorkList ← spillWorkList \ {m}
+    REG_ALLOC_LOG("Delete temp %d from spill_worklist", m->NodeInfo()->Int());
     spill_worklist->DeleteNode(m);
 
     if (MoveRelated(m)) {
       freeze_worklist->Union(m);
     } else {
+      REG_ALLOC_LOG("Add temp %d to simplify_worklist", m->NodeInfo()->Int());
       simplify_worklist->Union(m);
     }
   }
@@ -241,10 +266,13 @@ void RegAllocator::Coalesce() {
   worklist_moves->Delete(m.first, m.second);
   if (u == v) {
     coalesced_moves->Union(x, y);
+    REG_ALLOC_LOG("AddWorklist temp %d", u->NodeInfo()->Int());
     AddWorkList(u);
   } else if (precolored->Contain(v) || u->Adj(v)) {
     constrained_moves->Union(x, y);
+    REG_ALLOC_LOG("AddWorklist temp %d", u->NodeInfo()->Int());
     AddWorkList(u);
+    REG_ALLOC_LOG("AddWorklist temp %d", v->NodeInfo()->Int());
     AddWorkList(v);
   } else {
     bool then_clause = false;
@@ -257,12 +285,13 @@ void RegAllocator::Coalesce() {
         }
       }
     } else {
-      then_clause = Conservative(Adjacent(v)->Union(Adjacent(u)));
+      then_clause = Conservative(Adjacent(u)->Union(Adjacent(v)));
     }
 
     if (then_clause) {
       coalesced_moves->Union(x, y);
       Combine(u, v);
+      REG_ALLOC_LOG("AddWorklist temp %d", u->NodeInfo()->Int());
       AddWorkList(u);
     } else {
       active_moves->Union(x, y);
@@ -271,8 +300,10 @@ void RegAllocator::Coalesce() {
 }
 
 void RegAllocator::AddWorkList(live::INodePtr u) {
-  if (!precolored->Contain(u) && !MoveRelated(u) && *(degree->Look(u)) < K) {
+  if (!precolored->Contain(u) && !MoveRelated(u) && (*(degree->Look(u)) < K)) {
     freeze_worklist->DeleteNode(u);
+    REG_ALLOC_LOG("Add temp %d to simplify_worklist, degree %d",
+                  u->NodeInfo()->Int(), *(degree->Look(u)));
     simplify_worklist->Union(u);
   }
 }
@@ -296,10 +327,12 @@ live::INodePtr RegAllocator::GetAlias(live::INodePtr n) {
     return n;
 }
 void RegAllocator::Combine(live::INodePtr u, live::INodePtr v) {
-  REG_ALLOC_LOG("start");
+  REG_ALLOC_LOG("start combine temp %d and temp %d", u->NodeInfo()->Int(),
+                v->NodeInfo()->Int());
   if (freeze_worklist->Contain(v)) {
     freeze_worklist->DeleteNode(v);
   } else {
+    REG_ALLOC_LOG("Delete temp %d from spill_worklist", v->NodeInfo()->Int());
     spill_worklist->DeleteNode(v);
   }
   coalesced_nodes->Union(v);
@@ -314,6 +347,7 @@ void RegAllocator::Combine(live::INodePtr u, live::INodePtr v) {
   }
   if (*(degree->Look(u)) >= K && freeze_worklist->Contain(u)) {
     freeze_worklist->DeleteNode(u);
+    REG_ALLOC_LOG("Add temp %d to spill_worklist", u->NodeInfo()->Int());
     spill_worklist->Union(u);
   }
 }
@@ -323,6 +357,7 @@ void RegAllocator::Freeze() {
     return;
   auto u = freeze_worklist->GetList().front();
   freeze_worklist->DeleteNode(u);
+  REG_ALLOC_LOG("Add temp %d to simplify_worklist", u->NodeInfo()->Int());
   simplify_worklist->Union(u);
   FreezeMoves(u);
 }
@@ -340,6 +375,7 @@ void RegAllocator::FreezeMoves(live::INodePtr u) {
     frozen_moves->Union(x, y);
     if (NodeMoves(v)->GetList().empty() && *(degree->Look(v)) < K) {
       freeze_worklist->DeleteNode(v);
+      REG_ALLOC_LOG("Add temp %d to simplify_worklist", v->NodeInfo()->Int());
       simplify_worklist->Union(v);
     }
   }
@@ -349,16 +385,18 @@ void RegAllocator::SelectSpill() {
   if (spill_worklist->GetList().empty())
     return;
   // TODO: Should use heuristic algorithm
-  live::INodePtr u;
-  for (auto it : spill_worklist->GetList()) {
-    u = it;
-    // TODO: do not select temp can be spilled
-    spill_worklist->DeleteNode(u);
-    if (!precolored->Contain(it))
-      break;
-  }
+  REG_ALLOC_LOG("Spill_worklist size %zu", spill_worklist->GetList().size());
+  live::INodePtr u = spill_worklist->GetList().front();
+  REG_ALLOC_LOG("try SelectSpill temp %d", u->NodeInfo()->Int());
+  REG_ALLOC_LOG("Delete temp %d from spill_worklist", u->NodeInfo()->Int());
+  spill_worklist->DeleteNode(u);
+  // TODO
+  if (no_spill_temps->Contain(u))
+    return;
+  REG_ALLOC_LOG("Add temp %d to simplify_worklist", u->NodeInfo()->Int());
   simplify_worklist->Union(u);
   FreezeMoves(u);
+  REG_ALLOC_LOG("SelectSpill success temp %d", u->NodeInfo()->Int());
 }
 col::Result RegAllocator::AssignColor() {
   REG_ALLOC_LOG("start");
@@ -369,7 +407,6 @@ col::Result RegAllocator::AssignColor() {
     auto n = select_stack->GetList().front();
     select_stack->DeleteNode(n);
 
-    REG_ALLOC_LOG("InitOkColors");
     // okColors ← [0, … , K-1]
     color.InitOkColors();
 
@@ -402,10 +439,11 @@ col::Result RegAllocator::AssignColor() {
   REG_ALLOC_LOG("finish");
   return color.BuildAndGetResult();
 }
+
 void RegAllocator::RewriteProgram() {
   REG_ALLOC_LOG("start");
   live::INodeListPtr new_temps = new live::INodeList();
-
+  no_spill_temps->Clear();
   for (live::INodePtr v : spilled_nodes->GetList()) {
     // Allocate memory locations for each v∈spilledNodes
     frame::InFrameAccess *access = static_cast<frame::InFrameAccess *>(
@@ -451,6 +489,7 @@ void RegAllocator::RewriteProgram() {
     // Put All the vi into a set newTemps
     live::INodePtr new_node = interf_graph->NewNode(vi);
     new_temps->Union(new_node);
+    no_spill_temps->Append(new_node);
   }
 
   spilled_nodes->Clear();
@@ -471,6 +510,7 @@ void RegAllocator::Init() {
   coalesced_nodes = new live::INodeList();
   select_stack = new live::INodeList();
   colored_nodes = new live::INodeList();
+  no_spill_temps = new live::INodeList();
 
   worklist_moves = new live::MoveList();
   active_moves = new live::MoveList();

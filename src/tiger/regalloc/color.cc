@@ -3,6 +3,20 @@
 extern frame::RegManager *reg_manager;
 
 namespace col {
+
+//#define DBG_COL
+
+//#define COL_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//    printf("[COL_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+//           __FUNCTION__, ##args);                                              \
+//    fflush(stdout);                                                            \
+//  } while (0);
+
+#define COL_LOG(fmt, args...)                                            \
+  do {                                                                         \
+  } while (0);
+
 /* TODO: Put your lab6 code here */
 col::Result Color::BuildAndGetResult() {
   return {coloring, new live::INodeList()};
@@ -16,6 +30,10 @@ Color::Color() {
     okColors.insert(reg_name);
     // precolored nodes
     coloring->Enter(reg, reg_name);
+    COL_LOG("insert precolored temp %d, color %s", reg->Int(), reg_name->data())
+#ifdef DBG_COL
+    COL_LOG("Look result %s", coloring->Look(reg)->data())
+#endif
   }
 }
 
@@ -35,6 +53,7 @@ bool Color::AssignColor(live::INodePtr n) {
 
 void Color::AssignSameColor(live::INodePtr color_src,
                             live::INodePtr color_dst) {
+  COL_LOG("start finding temp %d color", color_src->NodeInfo()->Int())
   auto c = coloring->Look(color_src->NodeInfo());
   // incase not finding color of src
   assert(c);

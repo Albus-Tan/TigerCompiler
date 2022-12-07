@@ -45,15 +45,16 @@ MoveList *MoveList::Intersect(MoveList *list) {
 
 bool SameSet(const std::set<temp::Temp *> &first,
              const std::set<temp::Temp *> &second) {
-  if (first.size() != second.size())
-    return false;
-  auto it_second = second.begin();
-  for (auto it_first : first) {
-    if (it_first != *it_second)
-      return false;
-    ++it_second;
-  }
-  return true;
+  return first == second;
+//  if (first.size() != second.size())
+//    return false;
+//  auto it_second = second.begin();
+//  for (auto it_first : first) {
+//    if (it_first != *it_second)
+//      return false;
+//    ++it_second;
+//  }
+//  return true;
 }
 
 std::set<temp::Temp *> ToSet(const std::list<temp::Temp *> &origin) {

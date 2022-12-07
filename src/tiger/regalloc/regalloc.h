@@ -59,6 +59,9 @@ private:
   // nodes colored
   live::INodeListPtr colored_nodes;
 
+  // regs should not be spilled
+  live::INodeListPtr no_spill_temps;
+
   /* Move sets */
 
   // moves enabled for coalescing
