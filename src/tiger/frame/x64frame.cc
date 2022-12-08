@@ -21,6 +21,14 @@ X64Frame::X64Frame(temp::Label *name, std::list<bool> formals) : Frame(name) {
 
 std::list<frame::Access *> *X64Frame::Formals() { return nullptr; }
 
+int X64Frame::Size() {
+//  const int arg_num = formals_->size();
+//  const int arg_reg_num = reg_manager->ArgRegs()->GetList().size();
+//  return -offset_ + std::max(arg_num - arg_reg_num, 0) * reg_manager->WordSize();
+  return -offset_;
+}
+
+
 /* TODO: Put your lab5 code here */
 temp::TempList *X64RegManager::Registers() {
   /* TODO: Put your lab5 code here */
@@ -145,6 +153,20 @@ tree::Exp *ExternalCall(std::string s, tree::ExpList *args) {
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   /* TODO: Put your lab5 code here */
   // TODO: may have bugs
+  tree::Stm *res_stm = nullptr;
+
+  // Save callee-saved registers
+  tree::Stm *save_callee_stm = new tree::ExpStm(new tree::ConstExp(0));
+  temp::TempList *callee_saved = new temp::TempList();
+  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
+    temp::Temp *dst = temp::TempFactory::NewTemp();
+    save_callee_stm =
+        new tree::SeqStm(
+        save_callee_stm, new tree::MoveStm(new tree::TempExp(dst),
+                                                     new tree::TempExp(reg)));
+    callee_saved->Append(dst);
+  }
+
   // num of regs that can store arg
   auto arg_reg_num = reg_manager->ArgRegs()->GetList().size();
   // num of arg of proc
@@ -154,13 +176,12 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   for (Access *formal : *(frame->formals_)) {
     tree::Exp *dst =
         formal->ToExp(new tree::TempExp(reg_manager->FramePointer()));
-    tree::Exp *src;
+    tree::Exp *src = nullptr;
     if (formal_idx < arg_reg_num) {
       // in reg
       src = new tree::TempExp(reg_manager->ArgRegs()->NthTemp(formal_idx));
     } else {
       // in stack
-      // TODO: may have bugs in offset
       src = new tree::MemExp(new tree::BinopExp(
           tree::BinOp::PLUS_OP, new tree::TempExp(reg_manager->FramePointer()),
           new tree::ConstExp((arg_num - formal_idx) *
@@ -177,9 +198,23 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   }
   if (view_shift) {
     tail->right_ = stm;
-    return view_shift;
+    res_stm = view_shift;
+  } else {
+    res_stm = stm;
   }
-  return stm;
+
+  res_stm = new tree::SeqStm(save_callee_stm, res_stm);
+
+  // Restore callee-saved registers
+  auto saved = callee_saved->GetList().cbegin();
+  for (auto reg : reg_manager->CalleeSaves()->GetList()) {
+    res_stm = new tree::SeqStm(res_stm, new tree::MoveStm(new tree::TempExp(reg),
+                                                  new tree::TempExp(*saved)));
+    ++saved;
+  }
+  delete callee_saved;
+
+  return res_stm;
 }
 
 assem::InstrList *ProcEntryExit2(assem::InstrList *body) {

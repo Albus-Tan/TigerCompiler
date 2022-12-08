@@ -112,6 +112,7 @@ public:
   X64Frame(temp::Label *name, std::list<bool> formals);
   int AllocLocal();
   std::list<frame::Access *> *Formals();
+  int Size() override;
 };
 
 } // namespace frame

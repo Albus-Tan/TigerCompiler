@@ -96,15 +96,13 @@ public:
   std::list<frame::Access *> *formals_; // The locations of all the formals ()
   int offset_ = 0;                        // - frame size
 
-  // TODO: num of local var
-
   // label at which the function’s machine code is to begin
   temp::Label *name_ = nullptr; // indicate the return address (jump to according label)
 public:
   Frame() {}
   Frame(temp::Label *name) : offset_(0), name_(name) {}
   ~Frame() {}
-  [[nodiscard]] int Size() const { return -offset_; }
+  [[nodiscard]] virtual int Size() { return -offset_; }
   [[nodiscard]] std::string GetLabel() { return name_->Name(); }
   [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
   virtual int AllocLocal() = 0;  // return an offset from the frame pointer

@@ -2,18 +2,18 @@
 
 #include "tiger/output/logger.h"
 
-#define REG_ALLOC_LOG(fmt, args...)                                            \
-  do {                                                                         \
-  } while (0);
-
-//#define DBG_GRAPH
-
 //#define REG_ALLOC_LOG(fmt, args...)                                            \
 //  do {                                                                         \
-//    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-//           __FUNCTION__, ##args);                                              \
-//    fflush(stdout);                                                            \
 //  } while (0);
+
+#define DBG_GRAPH
+
+#define REG_ALLOC_LOG(fmt, args...)                                            \
+  do {                                                                         \
+    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+           __FUNCTION__, ##args);                                              \
+    fflush(stdout);                                                            \
+  } while (0);
 
 extern frame::RegManager *reg_manager;
 
@@ -455,11 +455,13 @@ void RegAllocator::RewriteProgram() {
     // definition of a vi , a fetch before each use of a vi
     auto instr_it = assem_instr_->GetList().begin();
     while (instr_it != assem_instr_->GetList().end()) {
+      assert(!precolored->Contain(v));
 
       (*instr_it)->ReplaceTemp(old_temp, vi);
 
       // insert a fetch before each use of a vi
       if ((*instr_it)->Use()->Contain(vi)) {
+        REG_ALLOC_LOG("insert a fetch before each use of a vi");
         std::string ins("movq (" + frame_->name_->Name() + "_framesize" +
                         std::to_string(frame_->offset_) + ")(`s0), `d0");
         new_instr_list->Append(new assem::OperInstr(
@@ -471,6 +473,7 @@ void RegAllocator::RewriteProgram() {
 
       // insert a store after each definition of a vi
       if ((*instr_it)->Def()->Contain(vi)) {
+        REG_ALLOC_LOG("insert a store after each definition of a vi");
         std::string ins("movq `s0, (" + frame_->name_->Name() + "_framesize" +
                         std::to_string(frame_->offset_) + ")(`d0)");
         new_instr_list->Append(new assem::OperInstr(
@@ -489,7 +492,7 @@ void RegAllocator::RewriteProgram() {
     no_spill_temps->Append(new_node);
   }
 
-  spilled_nodes->Clear();
+  spill_worklist->Clear();
   initial->Clear();
   initial = colored_nodes->Union(coalesced_nodes->Union(new_temps));
   colored_nodes->Clear();
@@ -530,6 +533,7 @@ void RegAllocator::ClearAndInit() {
   coalesced_nodes->Clear();
   select_stack->Clear();
   colored_nodes->Clear();
+  no_spill_temps->Clear();
 
   //  delete worklist_moves;
   //  worklist_moves = new live::MoveList();
