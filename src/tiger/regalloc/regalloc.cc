@@ -194,9 +194,6 @@ void RegAllocator::Simplify() {
   REG_ALLOC_LOG("push temp %d on selectStack", n->NodeInfo()->Int())
   select_stack->Prepend(n);
 
-  // FIXME: try
-  spill_worklist->DeleteNode(n);
-
   // forall m ∈ Adjacent(n)
   for (auto m : Adjacent(n)->GetList()) {
     // DecrementDegree(m)

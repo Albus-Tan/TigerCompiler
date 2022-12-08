@@ -204,7 +204,7 @@ assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   // epilog part
   std::stringstream epilogue;
   epilogue << "addq $" << rsp_offset << ", %rsp" << std::endl;
-  epilogue << "retq" << std::endl << ".END" << std::endl;
+  epilogue << "retq" << std::endl;
   return new assem::Proc(prologue.str(), body, epilogue.str());
 }
 
