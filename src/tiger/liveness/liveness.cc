@@ -2,6 +2,18 @@
 
 extern frame::RegManager *reg_manager;
 
+//#define LIVENESS_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//  } while (0);
+
+
+#define LIVENESS_LOG(fmt, args...)                                            \
+  do {                                                                         \
+    printf("[LIVENESS_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+           __FUNCTION__, ##args);                                              \
+    fflush(stdout);                                                            \
+  } while (0);
+
 namespace live {
 
 bool MoveList::Contain(INodePtr src, INodePtr dst) {
@@ -73,6 +85,8 @@ temp::TempList *ToTempList(const std::set<temp::Temp *> &origin) {
 
 void LiveGraphFactory::LiveMap() {
   /* TODO: Put your lab6 code here */
+  LIVENESS_LOG("start")
+
   for (fg::FNodePtr node : flowgraph_->Nodes()->GetList()) {
     in_->Enter(node, new temp::TempList());
     out_->Enter(node, new temp::TempList());
@@ -113,9 +127,13 @@ void LiveGraphFactory::LiveMap() {
       }
     }
   }
+
+  LIVENESS_LOG("finish")
 }
 
 void LiveGraphFactory::InterfGraph() {
+
+  LIVENESS_LOG("start")
 
   // Build precolored InterfGraph
   auto precolored_temps = reg_manager->Registers()->GetList();
@@ -201,6 +219,8 @@ void LiveGraphFactory::InterfGraph() {
       }
     }
   }
+
+  LIVENESS_LOG("finish")
 }
 
 void LiveGraphFactory::Liveness() {

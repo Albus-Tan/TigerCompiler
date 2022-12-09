@@ -89,6 +89,7 @@ void RegAllocator::LivenessAnalysis() {
   // construct and assem flow graph
   fg::FlowGraphFactory flow_graph_factory(assem_instr_);
   flow_graph_factory.AssemFlowGraph();
+  REG_ALLOC_LOG("finish construct and assem flow graph")
 
   // construct and assem live graph
   live::LiveGraphFactory live_graph_factory(flow_graph_factory.GetFlowGraph());
@@ -97,6 +98,7 @@ void RegAllocator::LivenessAnalysis() {
   interf_graph = live_graph.interf_graph;
   moves = live_graph.moves;
   temp_node_map = live_graph_factory.GetTempNodeMap();
+  REG_ALLOC_LOG("finish construct and assem live graph")
 
 #ifdef DBG_GRAPH
   interf_graph->Show(stdout, interf_graph->Nodes(),

@@ -71,10 +71,10 @@ void CodeGen::Codegen() {
 
   // Init FP with SP
   // FP = SP + fs
-  instr_list->Append(new assem::OperInstr(
-      "leaq " + fs_ + "(`s0), `d0",
-      new temp::TempList(reg_manager->FramePointer()),
-      new temp::TempList(reg_manager->StackPointer()), nullptr));
+//  instr_list->Append(new assem::OperInstr(
+//      "leaq " + fs_ + "(`s0), `d0",
+//      new temp::TempList(reg_manager->FramePointer()),
+//      new temp::TempList(reg_manager->StackPointer()), nullptr));
 
   // Munch
   for (auto stm : traces_->GetStmList()->GetList()) {

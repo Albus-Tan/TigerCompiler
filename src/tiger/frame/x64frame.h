@@ -12,14 +12,14 @@ class X64RegManager : public RegManager {
   /* TODO: Put your lab5 code here */
 public:
   enum X64Reg {
-    RAX = 0,
-    RBX,
+    RBX = 0,
     RCX,
     RDX,
     RSI,
     RDI,
     RBP,
     RSP,
+    RAX,
     R8,
     R9,
     R10,
@@ -30,8 +30,8 @@ public:
     R15
   };
 
-  const std::string X64RegNames[16] = {"rax", "rbx", "rcx", "rdx", "rsi", "rdi",
-                                       "rbp", "rsp", "r8",  "r9",  "r10", "r11",
+  const std::string X64RegNames[16] = {"rbx", "rcx", "rdx", "rsi", "rdi", "rbp",
+                                       "rsp", "rax", "r8",  "r9",  "r10", "r11",
                                        "r12", "r13", "r14", "r15"};
   const int WORD_SIZE = 8;
 

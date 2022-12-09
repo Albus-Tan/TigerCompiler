@@ -4,18 +4,18 @@ extern frame::RegManager *reg_manager;
 
 namespace col {
 
-//#define DBG_COL
-
-//#define COL_LOG(fmt, args...)                                            \
-//  do {                                                                         \
-//    printf("[COL_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-//           __FUNCTION__, ##args);                                              \
-//    fflush(stdout);                                                            \
-//  } while (0);
+#define DBG_COL
 
 #define COL_LOG(fmt, args...)                                            \
   do {                                                                         \
+    printf("[COL_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+           __FUNCTION__, ##args);                                              \
+    fflush(stdout);                                                            \
   } while (0);
+
+//#define COL_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//  } while (0);
 
 /* TODO: Put your lab6 code here */
 col::Result Color::BuildAndGetResult() {
@@ -48,6 +48,7 @@ bool Color::AssignColor(live::INodePtr n) {
   auto c = okColors.begin();
   // color[n] ← c
   coloring->Enter(n->NodeInfo(), *c);
+  COL_LOG("AssignColor %s to temp %d",(*c)->data(),n->NodeInfo()->Int())
   return true;
 }
 
