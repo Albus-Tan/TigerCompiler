@@ -83,6 +83,8 @@ public:
     temp_list_ = new_list;
   }
 
+
+
 private:
   std::list<Temp *> temp_list_;
 };

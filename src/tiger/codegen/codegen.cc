@@ -326,7 +326,6 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
-  // TODO: may need to save caller and callee saved regs on stack!!!
   // prepare arguments
   // should be listed as “sources” of the instruction
   temp::TempList *arg_regs = args_->MunchArgs(instr_list, fs);

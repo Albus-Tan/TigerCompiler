@@ -22,10 +22,10 @@ X64Frame::X64Frame(temp::Label *name, std::list<bool> formals) : Frame(name) {
 std::list<frame::Access *> *X64Frame::Formals() { return nullptr; }
 
 int X64Frame::Size() {
-//  const int arg_num = formals_->size();
-//  const int arg_reg_num = reg_manager->ArgRegs()->GetList().size();
-//  return -offset_ + std::max(arg_num - arg_reg_num, 0) * reg_manager->WordSize();
-  return -offset_;
+  const int arg_num = formals_->size();
+  const int arg_reg_num = reg_manager->ArgRegs()->GetList().size();
+  return -offset_ + std::max(arg_num - arg_reg_num, 0) * reg_manager->WordSize();
+//  return -offset_;
 }
 
 
@@ -83,6 +83,13 @@ temp::TempList *X64RegManager::CallerSaves() {
    * @return caller-saved registers
    */
   return new temp::TempList({
+      regs_[RAX],
+      regs_[RCX],
+      regs_[RDX],
+      regs_[RSI],
+      regs_[RDI],
+      regs_[R8],
+      regs_[R9],
       regs_[R10],
       regs_[R11],
   });
