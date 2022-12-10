@@ -115,6 +115,8 @@ public:
     return node_list_;
   }
 
+  bool SameInfo(Node<T> *n);
+
 private:
   std::list<Node<T> *> node_list_{};
 };
@@ -190,6 +192,14 @@ template <typename T> NodeList<T> *Graph<T>::Nodes() { return my_nodes_; }
 template <typename T> bool NodeList<T>::Contain(Node<T> *n) {
   for (auto node : node_list_) {
     if (node == n)
+      return true;
+  }
+  return false;
+}
+
+template <typename T> bool NodeList<T>::SameInfo(Node<T> *n) {
+  for (auto node : node_list_) {
+    if (node->NodeInfo() == n->NodeInfo())
       return true;
   }
   return false;

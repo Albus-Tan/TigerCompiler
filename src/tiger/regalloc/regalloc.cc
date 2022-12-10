@@ -8,6 +8,8 @@
 
 #define DBG_GRAPH
 
+#define PRINT_SPILLED_NODES
+
 #define REG_ALLOC_LOG(fmt, args...)                                            \
   do {                                                                         \
     printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
@@ -19,7 +21,8 @@ extern frame::RegManager *reg_manager;
 
 namespace ra {
 /* TODO: Put your lab6 code here */
-Result::~Result() {}
+Result::~Result() {
+}
 
 RegAllocator::RegAllocator(frame::Frame *frame,
                            std::unique_ptr<cg::AssemInstr> assem_instr)
@@ -30,6 +33,7 @@ RegAllocator::RegAllocator(frame::Frame *frame,
 
 void RegAllocator::RegAlloc() {
   REG_ALLOC_LOG("start RegAlloc");
+
   LivenessAnalysis();
   Build();
   MakeWorklist();
@@ -48,6 +52,25 @@ void RegAllocator::RegAlloc() {
              spill_worklist->GetList().empty()));
   auto color_assign_result = AssignColor();
   if (!spilled_nodes->GetList().empty()) {
+    REG_ALLOC_LOG("!spilled_nodes->GetList().empty(), spilled node size %zu", spilled_nodes->GetList().size());
+#ifdef PRINT_SPILLED_NODES
+    for(auto sn : spilled_nodes->GetList()){
+      REG_ALLOC_LOG("spilled nodes temp %d", sn->NodeInfo()->Int());
+    }
+    for(auto u : spilled_nodes->GetList()){
+      REG_ALLOC_LOG("no spill temp %d", u->NodeInfo()->Int());
+    }
+#endif
+    for(auto u : spilled_nodes->GetList()){
+      while (no_spill_temps->SameInfo(u)){
+        REG_ALLOC_LOG("no_spill_temps->Contain(u) temp %d", u->NodeInfo()->Int());
+        if(spill_worklist->GetList().empty()) return;
+        u = spill_worklist->GetList().front();
+        REG_ALLOC_LOG("try no temp in spill_worklist, temp %d", u->NodeInfo()->Int());
+        spill_worklist->DeleteNode(u);
+      }
+    }
+
     RewriteProgram();
     RegAlloc();
   } else {
@@ -389,9 +412,7 @@ void RegAllocator::SelectSpill() {
   REG_ALLOC_LOG("try SelectSpill temp %d", u->NodeInfo()->Int());
   REG_ALLOC_LOG("Delete temp %d from spill_worklist", u->NodeInfo()->Int());
   spill_worklist->DeleteNode(u);
-  // TODO
-  if (no_spill_temps->Contain(u))
-    return;
+
   REG_ALLOC_LOG("Add temp %d to simplify_worklist", u->NodeInfo()->Int());
   simplify_worklist->Union(u);
   FreezeMoves(u);
@@ -419,8 +440,8 @@ col::Result RegAllocator::AssignColor() {
     }
 
     if (color.OkColorsEmpty()) {
-      REG_ALLOC_LOG("fail to color node, add to spilled_nodes");
-      spilled_nodes->Union(n);
+        REG_ALLOC_LOG("fail to color node, add to spilled_nodes");
+        spilled_nodes->Union(n);
     } else {
       REG_ALLOC_LOG("color node, temp %d", n->NodeInfo()->Int());
       colored_nodes->Union(n);
@@ -463,7 +484,7 @@ void RegAllocator::RewriteProgram() {
 
       // insert a fetch before each use of a vi
       if ((*instr_it)->Use()->Contain(vi)) {
-        REG_ALLOC_LOG("insert a fetch before each use of a vi");
+        REG_ALLOC_LOG("insert a fetch before each use of a vi %d", vi->Int());
         std::string ins("movq (" + frame_->name_->Name() + "_framesize" +
                         std::to_string(frame_->offset_) + ")(`s0), `d0");
         new_instr_list->Append(new assem::OperInstr(
@@ -494,7 +515,7 @@ void RegAllocator::RewriteProgram() {
     no_spill_temps->Append(new_node);
   }
 
-  spill_worklist->Clear();
+  spilled_nodes->Clear();
   initial->Clear();
   initial = colored_nodes->Union(coalesced_nodes->Union(new_temps));
   colored_nodes->Clear();
@@ -535,7 +556,7 @@ void RegAllocator::ClearAndInit() {
   coalesced_nodes->Clear();
   select_stack->Clear();
   colored_nodes->Clear();
-  no_spill_temps->Clear();
+//  no_spill_temps->Clear();
 
   //  delete worklist_moves;
   //  worklist_moves = new live::MoveList();

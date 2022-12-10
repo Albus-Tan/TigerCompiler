@@ -2,17 +2,17 @@
 
 extern frame::RegManager *reg_manager;
 
-//#define LIVENESS_LOG(fmt, args...)                                            \
-//  do {                                                                         \
-//  } while (0);
-
-
 #define LIVENESS_LOG(fmt, args...)                                            \
   do {                                                                         \
-    printf("[LIVENESS_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-           __FUNCTION__, ##args);                                              \
-    fflush(stdout);                                                            \
   } while (0);
+
+//
+//#define LIVENESS_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//    printf("[LIVENESS_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+//           __FUNCTION__, ##args);                                              \
+//    fflush(stdout);                                                            \
+//  } while (0);
 
 namespace live {
 

@@ -3,17 +3,17 @@
 
 namespace fg {
 
-//#define FLOWGRAPH_LOG(fmt, args...)                                            \
-//  do {                                                                         \
-//  } while (0);
-
-
 #define FLOWGRAPH_LOG(fmt, args...)                                            \
   do {                                                                         \
-    printf("[FLOWGRAPH_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-           __FUNCTION__, ##args);                                              \
-    fflush(stdout);                                                            \
   } while (0);
+
+//
+//#define FLOWGRAPH_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//    printf("[FLOWGRAPH_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+//           __FUNCTION__, ##args);                                              \
+//    fflush(stdout);                                                            \
+//  } while (0);
 
 void FlowGraphFactory::AssemFlowGraph() {
 
@@ -31,10 +31,10 @@ void FlowGraphFactory::AssemFlowGraph() {
     // create node for instr
     FNodePtr node = flowgraph_->NewNode(instr);
 
-    if (typeid(*instr) == typeid(assem::LabelInstr)) {
-      label_map_->Enter(static_cast<assem::LabelInstr *>(instr)->label_,
-                        node);
-    }
+//    if (typeid(*instr) == typeid(assem::LabelInstr)) {
+//      label_map_->Enter(static_cast<assem::LabelInstr *>(instr)->label_,
+//                        node);
+//    }
 
     if (prev_instr) {
 
@@ -44,6 +44,9 @@ void FlowGraphFactory::AssemFlowGraph() {
           flowgraph_->AddEdge(prev_node, node);
         }
       } else { // assem::MoveInstr or assem::LabelInstr
+        if (typeid(*prev_instr) == typeid(assem::LabelInstr)) {
+          label_map_->Enter(( static_cast<assem::LabelInstr *>(prev_instr))->label_, node);
+        }
         flowgraph_->AddEdge(prev_node, node);
       }
     } else {

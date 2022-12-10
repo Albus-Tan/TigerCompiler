@@ -29,6 +29,7 @@ public:
 class RegAllocator {
   /* TODO: Put your lab6 code here */
 private:
+
   std::unique_ptr<ra::Result> result_;
   frame::Frame *frame_;
   assem::InstrList *assem_instr_;
@@ -36,6 +37,7 @@ private:
   live::IGraphPtr interf_graph;
   live::MoveList *moves;
   tab::Table<temp::Temp, live::INode> *temp_node_map;
+
 
   // store precolored machine register nodes
   live::INodeListPtr precolored;
