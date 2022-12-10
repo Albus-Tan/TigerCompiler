@@ -50,26 +50,19 @@ void RegAllocator::RegAlloc() {
              worklist_moves->GetList().empty() &&
              freeze_worklist->GetList().empty() &&
              spill_worklist->GetList().empty()));
+
   auto color_assign_result = AssignColor();
+
   if (!spilled_nodes->GetList().empty()) {
-    REG_ALLOC_LOG("!spilled_nodes->GetList().empty(), spilled node size %zu", spilled_nodes->GetList().size());
+    REG_ALLOC_LOG("!spilled_nodes->GetList().empty(), spilled node size %zu", spilled_nodes->GetList().size())
 #ifdef PRINT_SPILLED_NODES
     for(auto sn : spilled_nodes->GetList()){
-      REG_ALLOC_LOG("spilled nodes temp %d", sn->NodeInfo()->Int());
+      REG_ALLOC_LOG("spilled nodes temp %d", sn->NodeInfo()->Int())
     }
     for(auto u : spilled_nodes->GetList()){
-      REG_ALLOC_LOG("no spill temp %d", u->NodeInfo()->Int());
+      REG_ALLOC_LOG("no spill temp %d", u->NodeInfo()->Int())
     }
 #endif
-    for(auto u : spilled_nodes->GetList()){
-      while (no_spill_temps->SameInfo(u)){
-        REG_ALLOC_LOG("no_spill_temps->Contain(u) temp %d", u->NodeInfo()->Int());
-        if(spill_worklist->GetList().empty()) return;
-        u = spill_worklist->GetList().front();
-        REG_ALLOC_LOG("try no temp in spill_worklist, temp %d", u->NodeInfo()->Int());
-        spill_worklist->DeleteNode(u);
-      }
-    }
 
     RewriteProgram();
     RegAlloc();
@@ -406,22 +399,25 @@ void RegAllocator::SelectSpill() {
   REG_ALLOC_LOG("start");
   if (spill_worklist->GetList().empty())
     return;
-  // TODO: Should use heuristic algorithm
-  REG_ALLOC_LOG("Spill_worklist size %zu", spill_worklist->GetList().size());
+  REG_ALLOC_LOG("Spill_worklist size %zu", spill_worklist->GetList().size())
   live::INodePtr u = spill_worklist->GetList().front();
-  REG_ALLOC_LOG("try SelectSpill temp %d", u->NodeInfo()->Int());
-  REG_ALLOC_LOG("Delete temp %d from spill_worklist", u->NodeInfo()->Int());
+  // use heuristic algorithm
+  for(auto t : spill_worklist->GetList()){
+    if(t->Degree() > u->Degree()) u = t;
+  }
+  REG_ALLOC_LOG("try SelectSpill temp %d", u->NodeInfo()->Int())
+  REG_ALLOC_LOG("Delete temp %d from spill_worklist", u->NodeInfo()->Int())
   spill_worklist->DeleteNode(u);
 
-  REG_ALLOC_LOG("Add temp %d to simplify_worklist", u->NodeInfo()->Int());
+  REG_ALLOC_LOG("Add temp %d to simplify_worklist", u->NodeInfo()->Int())
   simplify_worklist->Union(u);
   FreezeMoves(u);
-  REG_ALLOC_LOG("SelectSpill success temp %d", u->NodeInfo()->Int());
+  REG_ALLOC_LOG("SelectSpill success temp %d", u->NodeInfo()->Int())
 }
 col::Result RegAllocator::AssignColor() {
-  REG_ALLOC_LOG("start");
+  REG_ALLOC_LOG("start")
   col::Color color;
-  REG_ALLOC_LOG("select_stack size %zu", select_stack->GetList().size());
+  REG_ALLOC_LOG("select_stack size %zu", select_stack->GetList().size())
   while (!select_stack->GetList().empty()) {
     // let n = pop(SelectStack)
     auto n = select_stack->GetList().front();
@@ -440,10 +436,10 @@ col::Result RegAllocator::AssignColor() {
     }
 
     if (color.OkColorsEmpty()) {
-        REG_ALLOC_LOG("fail to color node, add to spilled_nodes");
+        REG_ALLOC_LOG("fail to color node, add to spilled_nodes")
         spilled_nodes->Union(n);
     } else {
-      REG_ALLOC_LOG("color node, temp %d", n->NodeInfo()->Int());
+      REG_ALLOC_LOG("color node, temp %d", n->NodeInfo()->Int())
       colored_nodes->Union(n);
       color.AssignColor(n);
     }
@@ -452,11 +448,11 @@ col::Result RegAllocator::AssignColor() {
   for (live::INodePtr n : coalesced_nodes->GetList()) {
     REG_ALLOC_LOG("assign same color for coalesced_nodes, src GetAlias(n) %d, "
                   "dst temp %d",
-                  GetAlias(n)->NodeInfo()->Int(), n->NodeInfo()->Int());
+                  GetAlias(n)->NodeInfo()->Int(), n->NodeInfo()->Int())
     color.AssignSameColor(GetAlias(n), n);
-    REG_ALLOC_LOG("AssignSameColor success");
+    REG_ALLOC_LOG("AssignSameColor success")
   }
-  REG_ALLOC_LOG("finish");
+  REG_ALLOC_LOG("finish")
   return color.BuildAndGetResult();
 }
 
