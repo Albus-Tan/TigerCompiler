@@ -13,22 +13,61 @@ constexpr int maxlen = 1024;
 
 namespace cg {
 
+void CodeGen::PushRegOnStack(assem::InstrList &instr_list, temp::Temp *reg) {
+  frame_->offset_ -= reg_manager->WordSize();
+  instr_list.Append(new assem::OperInstr(
+      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
+  instr_list.Append(new assem::OperInstr(
+      "movq `s0, (`d0)", new temp::TempList(reg_manager->StackPointer()),
+      new temp::TempList(reg), nullptr));
+}
+
+void CodeGen::PopRegFromStack(assem::InstrList &instr_list, temp::Temp *reg) {
+  instr_list.Append(new assem::OperInstr(
+      "movq (`s0), `d0", new temp::TempList(reg),
+      new temp::TempList(reg_manager->StackPointer()), nullptr));
+  instr_list.Append(new assem::OperInstr(
+      "addq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
+}
+
+void CodeGen::PushRegToPos(assem::InstrList &instr_list, temp::Temp *pos,
+                           temp::Temp *to_be_push) {
+  frame_->offset_ -= reg_manager->WordSize();
+  instr_list.Append(new assem::OperInstr(
+      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(pos), nullptr, nullptr));
+  instr_list.Append(
+      new assem::OperInstr("movq `s0, (`d0)", new temp::TempList(pos),
+                           new temp::TempList(to_be_push), nullptr));
+}
+
+void CodeGen::PopRegFromPos(assem::InstrList &instr_list, temp::Temp *pos,
+                            temp::Temp *to_be_pop) {
+  instr_list.Append(new assem::OperInstr(
+      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
+      new temp::TempList(pos), nullptr, nullptr));
+  instr_list.Append(new assem::OperInstr("movq (`s0), `d0",
+                                         new temp::TempList(to_be_pop),
+                                         new temp::TempList(pos), nullptr));
+}
+
 void CodeGen::Codegen() {
   fs_ = frame_->GetLabel() + "_framesize"; // // Frame size label_
   auto instr_list = new assem::InstrList();
 
-  //  // Save callee-saved registers
-  //  auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
-  //  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-  //                                          new temp::TempList(pos), nullptr,
-  //                                          nullptr));
-  //  instr_list->Append(
-  //      new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ",
-  //      `d0",
-  //                           new temp::TempList(pos), nullptr, nullptr));
-  //  for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
-  //    PushRegToPos(*instr_list, pos, callee_save_reg);
-  //  }
+//    // Save callee-saved registers
+//    auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
+//    instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+//                                            new temp::TempList(pos), nullptr,
+//                                            nullptr));
+//    instr_list->Append(
+//        new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ",`d0",
+//                             new temp::TempList(pos), nullptr, nullptr));
+//    for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
+//      PushRegToPos(*instr_list, pos, callee_save_reg);
+//    }
 
   // Init FP with SP
   // FP = SP + fs
@@ -42,22 +81,22 @@ void CodeGen::Codegen() {
     stm->Munch(*instr_list, fs_);
   }
 
-  //  // Restore callee-saved registers
-  //  auto pos_rbx =
-  //  reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX); auto li =
-  //  reg_manager->CalleeSaves()->GetList(); instr_list->Append(new
-  //  assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-  //                                          new temp::TempList(pos_rbx),
-  //                                          nullptr, nullptr));
-  //  instr_list->Append(new assem::OperInstr(
-  //      "addq $" +
-  //          std::to_string(frame_->offset_ +
-  //                         li.size() * reg_manager->WordSize()) +
-  //          ", `d0",
-  //      new temp::TempList(pos_rbx), nullptr, nullptr));
-  //  for (auto callee_save_reg : li) {
-  //    PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
-  //  }
+//    // Restore callee-saved registers
+//    auto pos_rbx =
+//    reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX); auto li =
+//    reg_manager->CalleeSaves()->GetList(); instr_list->Append(new
+//    assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+//                                            new temp::TempList(pos_rbx),
+//                                            nullptr, nullptr));
+//    instr_list->Append(new assem::OperInstr(
+//        "addq $" +
+//            std::to_string(frame_->offset_ +
+//                           li.size() * reg_manager->WordSize()) +
+//            ", `d0",
+//        new temp::TempList(pos_rbx), nullptr, nullptr));
+//    for (auto callee_save_reg : li) {
+//      PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
+//    }
 
   assem_instr_ =
       std::make_unique<AssemInstr>(frame::ProcEntryExit2(instr_list));
@@ -250,7 +289,7 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
                                            new temp::TempList(rax), nullptr));
     instr_list.Append(new assem::OperInstr(
         "idivq `s0", new temp::TempList({rax, rdx}),
-        new temp::TempList(right_->Munch(instr_list, fs)), nullptr));
+        new temp::TempList({right_->Munch(instr_list, fs), rax}), nullptr));
     instr_list.Append(new assem::MoveInstr(
         "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
     return reg;
@@ -264,7 +303,7 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
                              new temp::TempList(left_->Munch(instr_list, fs))));
     instr_list.Append(new assem::OperInstr(
         "imulq `s0", new temp::TempList({rax, rdx}),
-        new temp::TempList(right_->Munch(instr_list, fs)), nullptr));
+        new temp::TempList({right_->Munch(instr_list, fs), rax}), nullptr));
     instr_list.Append(new assem::MoveInstr(
         "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
     return reg;

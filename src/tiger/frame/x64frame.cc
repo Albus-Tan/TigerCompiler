@@ -241,11 +241,23 @@ assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   const int rsp_offset = frame->Size();
   prologue << ".set " << name << "_framesize, " << rsp_offset << std::endl;
   prologue << name << ":" << std::endl;
+
+  if(frame->name_->Name() == "tigermain") {
+    prologue << "subq $8, %rsp" << std::endl;
+    prologue << "movq %rbp, (%rsp)" << std::endl;
+  }
+  
   prologue << "subq $" << rsp_offset << ", %rsp" << std::endl;
 
   // epilog part
   std::stringstream epilogue;
   epilogue << "addq $" << rsp_offset << ", %rsp" << std::endl;
+
+  if(frame->name_->Name() == "tigermain") {
+    epilogue << "movq (%rsp), %rbp" << std::endl;
+    epilogue << "addq $8, %rsp" << std::endl;
+  }
+
   epilogue << "retq" << std::endl;
   return new assem::Proc(prologue.str(), body, epilogue.str());
 }
