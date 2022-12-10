@@ -289,7 +289,7 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
                                            new temp::TempList(rax), nullptr));
     instr_list.Append(new assem::OperInstr(
         "idivq `s0", new temp::TempList({rax, rdx}),
-        new temp::TempList({right_->Munch(instr_list, fs), rax}), nullptr));
+        new temp::TempList({right_->Munch(instr_list, fs), rax, rdx}), nullptr));
     instr_list.Append(new assem::MoveInstr(
         "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
     return reg;
