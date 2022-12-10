@@ -61,9 +61,9 @@ void FlowGraphFactory::AssemFlowGraph() {
     assem::Instr *instr = node->NodeInfo();
 
     // add edge if instr is jump
-    if (typeid(*prev_instr) == typeid(assem::OperInstr)) {
+    if (typeid(*instr) == typeid(assem::OperInstr)) {
       assem::Targets *jumps =
-          static_cast<assem::OperInstr *>(prev_instr)->jumps_;
+          static_cast<assem::OperInstr *>(instr)->jumps_;
       if (jumps) {
         for (temp::Label *jump_target : *(jumps->labels_)) {
           FNodePtr target = label_map_->Look(jump_target);
