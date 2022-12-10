@@ -71,16 +71,16 @@ public:
     return std::any_of(temp_list_.cbegin(), temp_list_.cend(),
                        [t](const auto x) { return t == x; });
   }
-  void ReplaceTemp(Temp *old_temp, Temp *new_temp) {
-    std::list<Temp *> new_list;
-    for(auto temp:temp_list_){
-      if(temp == old_temp){
-        new_list.emplace_back(new_temp);
+  TempList *Replace(Temp *oldTemp, Temp *newTemp) const {
+    TempList *res = new TempList();
+    for (Temp *temp : temp_list_) {
+      if (temp == oldTemp) {
+        res->temp_list_.push_back(newTemp);
       } else {
-        new_list.emplace_back(temp);
+        res->temp_list_.push_back(temp);
       }
     }
-    temp_list_ = new_list;
+    return res;
   }
 
 

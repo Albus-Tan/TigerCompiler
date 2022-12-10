@@ -97,4 +97,24 @@ void InstrList::Print(FILE *out, temp::Map *m) const {
   fprintf(out, "\n");
 }
 
+void OperInstr::ReplaceTemp(temp::Temp *oldTemp, temp::Temp *newTemp) {
+  if (dst_) {
+    dst_ = dst_->Replace(oldTemp, newTemp);
+  }
+  if (src_) {
+    src_ = src_->Replace(oldTemp, newTemp);
+  }
+}
+
+void LabelInstr::ReplaceTemp(temp::Temp *oldTemp, temp::Temp *newTemp) {}
+
+void MoveInstr::ReplaceTemp(temp::Temp *oldTemp, temp::Temp *newTemp) {
+  if (dst_) {
+    dst_ = dst_->Replace(oldTemp, newTemp);
+  }
+  if (src_) {
+    src_ = src_->Replace(oldTemp, newTemp);
+  }
+}
+
 } // namespace assem

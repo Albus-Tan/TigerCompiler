@@ -96,8 +96,7 @@ temp::TempList *OperInstr::Def() const {
 
 temp::TempList *LabelInstr::Use() const { return new temp::TempList(); }
 
-void LabelInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
-}
+
 
 temp::TempList *MoveInstr::Use() const {
   if (src_)
@@ -105,14 +104,7 @@ temp::TempList *MoveInstr::Use() const {
   else
     return new temp::TempList();
 }
-void MoveInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
-  if(src_){
-    src_->ReplaceTemp(old_temp, new_temp);
-  }
-  if(dst_){
-    dst_->ReplaceTemp(old_temp, new_temp);
-  }
-}
+
 
 temp::TempList *OperInstr::Use() const {
   if (src_)
@@ -120,12 +112,5 @@ temp::TempList *OperInstr::Use() const {
   else
     return new temp::TempList();
 }
-void OperInstr::ReplaceTemp(temp::Temp *old_temp, temp::Temp *new_temp) {
-  if(src_){
-    src_->ReplaceTemp(old_temp, new_temp);
-  }
-  if(dst_){
-    dst_->ReplaceTemp(old_temp, new_temp);
-  }
-}
+
 } // namespace assem

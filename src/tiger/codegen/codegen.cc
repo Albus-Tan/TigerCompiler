@@ -13,89 +13,51 @@ constexpr int maxlen = 1024;
 
 namespace cg {
 
-void CodeGen::PushRegOnStack(assem::InstrList &instr_list, temp::Temp *reg) {
-  frame_->offset_ -= reg_manager->WordSize();
-  instr_list.Append(new assem::OperInstr(
-      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
-      new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
-  instr_list.Append(new assem::OperInstr(
-      "movq `s0, (`d0)", new temp::TempList(reg_manager->StackPointer()),
-      new temp::TempList(reg), nullptr));
-}
-
-void CodeGen::PopRegFromStack(assem::InstrList &instr_list, temp::Temp *reg) {
-  instr_list.Append(new assem::OperInstr(
-      "movq (`s0), `d0", new temp::TempList(reg),
-      new temp::TempList(reg_manager->StackPointer()), nullptr));
-  instr_list.Append(new assem::OperInstr(
-      "addq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
-      new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
-}
-
-void CodeGen::PushRegToPos(assem::InstrList &instr_list, temp::Temp *pos,
-                           temp::Temp *to_be_push) {
-  frame_->offset_ -= reg_manager->WordSize();
-  instr_list.Append(new assem::OperInstr(
-      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
-      new temp::TempList(pos), nullptr, nullptr));
-  instr_list.Append(
-      new assem::OperInstr("movq `s0, (`d0)", new temp::TempList(pos),
-                           new temp::TempList(to_be_push), nullptr));
-}
-
-void CodeGen::PopRegFromPos(assem::InstrList &instr_list, temp::Temp *pos,
-                            temp::Temp *to_be_pop) {
-  instr_list.Append(new assem::OperInstr(
-      "subq $" + std::to_string(reg_manager->WordSize()) + ", `d0",
-      new temp::TempList(pos), nullptr, nullptr));
-  instr_list.Append(new assem::OperInstr("movq (`s0), `d0",
-                                         new temp::TempList(to_be_pop),
-                                         new temp::TempList(pos), nullptr));
-}
-
 void CodeGen::Codegen() {
   fs_ = frame_->GetLabel() + "_framesize"; // // Frame size label_
   auto instr_list = new assem::InstrList();
 
-//  // Save callee-saved registers
-//  auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
-//  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-//                                          new temp::TempList(pos), nullptr,
-//                                          nullptr));
-//  instr_list->Append(
-//      new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ", `d0",
-//                           new temp::TempList(pos), nullptr, nullptr));
-//  for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
-//    PushRegToPos(*instr_list, pos, callee_save_reg);
-//  }
+  //  // Save callee-saved registers
+  //  auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
+  //  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+  //                                          new temp::TempList(pos), nullptr,
+  //                                          nullptr));
+  //  instr_list->Append(
+  //      new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ",
+  //      `d0",
+  //                           new temp::TempList(pos), nullptr, nullptr));
+  //  for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
+  //    PushRegToPos(*instr_list, pos, callee_save_reg);
+  //  }
 
   // Init FP with SP
   // FP = SP + fs
-//  instr_list->Append(new assem::OperInstr(
-//      "leaq " + fs_ + "(`s0), `d0",
-//      new temp::TempList(reg_manager->FramePointer()),
-//      new temp::TempList(reg_manager->StackPointer()), nullptr));
+  //  instr_list->Append(new assem::OperInstr(
+  //      "leaq " + fs_ + "(`s0), `d0",
+  //      new temp::TempList(reg_manager->FramePointer()),
+  //      new temp::TempList(reg_manager->StackPointer()), nullptr));
 
   // Munch
   for (auto stm : traces_->GetStmList()->GetList()) {
     stm->Munch(*instr_list, fs_);
   }
 
-//  // Restore callee-saved registers
-//  auto pos_rbx = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX);
-//  auto li = reg_manager->CalleeSaves()->GetList();
-//  instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-//                                          new temp::TempList(pos_rbx), nullptr,
-//                                          nullptr));
-//  instr_list->Append(new assem::OperInstr(
-//      "addq $" +
-//          std::to_string(frame_->offset_ +
-//                         li.size() * reg_manager->WordSize()) +
-//          ", `d0",
-//      new temp::TempList(pos_rbx), nullptr, nullptr));
-//  for (auto callee_save_reg : li) {
-//    PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
-//  }
+  //  // Restore callee-saved registers
+  //  auto pos_rbx =
+  //  reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX); auto li =
+  //  reg_manager->CalleeSaves()->GetList(); instr_list->Append(new
+  //  assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+  //                                          new temp::TempList(pos_rbx),
+  //                                          nullptr, nullptr));
+  //  instr_list->Append(new assem::OperInstr(
+  //      "addq $" +
+  //          std::to_string(frame_->offset_ +
+  //                         li.size() * reg_manager->WordSize()) +
+  //          ", `d0",
+  //      new temp::TempList(pos_rbx), nullptr, nullptr));
+  //  for (auto callee_save_reg : li) {
+  //    PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
+  //  }
 
   assem_instr_ =
       std::make_unique<AssemInstr>(frame::ProcEntryExit2(instr_list));
@@ -106,10 +68,45 @@ void AssemInstr::Print(FILE *out, temp::Map *map) const {
     instr->Print(out, map);
   fprintf(out, "\n");
 }
+
+temp::TempList *MunchOperand(tree::Exp *exp, OperandRole role,
+                             std::string &assem, assem::InstrList &instr_list,
+                             std::string_view fs) {
+  if (typeid(*exp) == typeid(tree::ConstExp)) {
+    // imm
+    assem =
+        "$" + std::to_string(static_cast<const tree::ConstExp *>(exp)->consti_);
+    return new temp::TempList();
+  }
+  if (typeid(*exp) == typeid(tree::MemExp)) {
+    // mem
+    assem = role == SRC ? "(`s0)" : "(`d0)";
+    tree::Exp *addr = static_cast<const tree::MemExp *>(exp)->exp_;
+    if (typeid(*addr) == typeid(tree::BinopExp)) {
+      // check if format of address is reg + const
+      tree::BinopExp *binop_exp = static_cast<tree::BinopExp *>(addr);
+      tree::Exp *left = binop_exp->left_, *right = binop_exp->right_;
+      // IMM(%REG)
+      if (typeid(*left) == typeid(tree::ConstExp)) {
+        int offset = static_cast<const tree::ConstExp *>(left)->consti_;
+        assem = std::to_string(offset) + assem;
+        return new temp::TempList(right->Munch(instr_list, fs));
+      }
+      if (typeid(*right) == typeid(tree::ConstExp)) {
+        int offset = static_cast<const tree::ConstExp *>(right)->consti_;
+        assem = std::to_string(offset) + assem;
+        return new temp::TempList(left->Munch(instr_list, fs));
+      }
+    }
+    return new temp::TempList(addr->Munch(instr_list, fs));
+  }
+  // reg
+  assem = role == SRC ? "`s0" : "`d0";
+  return new temp::TempList(exp->Munch(instr_list, fs));
+}
 } // namespace cg
 
 namespace tree {
-/* TODO: Put your lab5 code here */
 
 void SeqStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   left_->Munch(instr_list, fs);
@@ -198,6 +195,7 @@ void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 }
 
 temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
+  temp::Temp *result = nullptr;
   std::string op_instr;
   switch (op_) {
   case PLUS_OP:
@@ -234,46 +232,66 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   default:
     assert(0);
   }
-  temp::Temp *left = left_->Munch(instr_list, fs);
-  temp::Temp *right = right_->Munch(instr_list, fs);
-  temp::Temp *reg = temp::TempFactory::NewTemp();
-  temp::TempList *result = new temp::TempList(reg);
+
   temp::Temp *rax = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
   temp::Temp *rdx = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RDX);
-  if (op_ == BinOp::MUL_OP) {
-    // imulq S
-    // R[%rdx]:R[%rax] <- S * R[%rax]
-    instr_list.Append(new assem::MoveInstr(
-        "movq `s0, `d0", new temp::TempList(rax), new temp::TempList(left)));
-    instr_list.Append(new assem::OperInstr("imulq `s0",
+
+  if (op_ == BinOp::DIV_OP) {
+    temp::Temp *reg = temp::TempFactory::NewTemp();
+
+    // idivq S
+    // R[%rdx] <- R[%rdx]:R[%rax] mod S
+    // R[%rax] <- R[%rdx]:R[%rax] / S
+    instr_list.Append(
+        new assem::MoveInstr("movq `s0, `d0", new temp::TempList(rax),
+                             new temp::TempList(left_->Munch(instr_list, fs))));
+    instr_list.Append(new assem::OperInstr("cqto",
                                            new temp::TempList({rax, rdx}),
-                                           new temp::TempList(right), nullptr));
+                                           new temp::TempList(rax), nullptr));
+    instr_list.Append(new assem::OperInstr(
+        "idivq `s0", new temp::TempList({rax, rdx}),
+        new temp::TempList(right_->Munch(instr_list, fs)), nullptr));
     instr_list.Append(new assem::MoveInstr(
         "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
     return reg;
-  } else {
-    if (op_ == BinOp::DIV_OP) {
-      // idivq S
-      // R[%rdx] <- R[%rdx]:R[%rax] mod S
-      // R[%rax] <- R[%rdx]:R[%rax] / S
-      instr_list.Append(new assem::MoveInstr(
-          "movq `s0, `d0", new temp::TempList(rax), new temp::TempList(left)));
-      instr_list.Append(new assem::OperInstr("cqto", new temp::TempList(rdx),
-                                             new temp::TempList(rax), nullptr));
-      instr_list.Append(
-          new assem::OperInstr("idivq `s0", new temp::TempList({rax, rdx}),
-                               new temp::TempList(right), nullptr));
-      instr_list.Append(new assem::MoveInstr(
-          "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
-      return reg;
-    } else {
-      instr_list.Append(new assem::MoveInstr("movq `s0, `d0", result,
-                                             new temp::TempList(left)));
-      instr_list.Append(new assem::OperInstr(
-          op_instr + " `s0, `d0", result, new temp::TempList(right), nullptr));
-      return reg;
-    }
   }
+  if (op_ == BinOp::MUL_OP) {
+    temp::Temp *reg = temp::TempFactory::NewTemp();
+    // imulq S
+    // R[%rdx]:R[%rax] <- S * R[%rax]
+    instr_list.Append(
+        new assem::MoveInstr("movq `s0, `d0", new temp::TempList(rax),
+                             new temp::TempList(left_->Munch(instr_list, fs))));
+    instr_list.Append(new assem::OperInstr(
+        "imulq `s0", new temp::TempList({rax, rdx}),
+        new temp::TempList(right_->Munch(instr_list, fs)), nullptr));
+    instr_list.Append(new assem::MoveInstr(
+        "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
+    return reg;
+  }
+
+  std::stringstream assem;
+  std::string leftAssem, rightAssem;
+  temp::TempList *left =
+      cg::MunchOperand(left_, cg::OperandRole::SRC, leftAssem, instr_list, fs);
+  temp::TempList *right = cg::MunchOperand(right_, cg::OperandRole::SRC,
+                                           rightAssem, instr_list, fs);
+  result = temp::TempFactory::NewTemp();
+
+  // Move an operand into register
+  // Destination is also used as a operand
+  right->Append(result);
+  temp::TempList *dst = new temp::TempList(result);
+  assem << "movq " << leftAssem << ", `d0";
+  if (typeid(*left_) == typeid(tree::MemExp)) {
+    instr_list.Append(new assem::OperInstr(assem.str(), dst, left, nullptr));
+  } else {
+    instr_list.Append(new assem::MoveInstr(assem.str(), dst, left));
+  }
+  assem.str("");
+  assem << op_instr << ' ' << rightAssem << ", `d0";
+  instr_list.Append(new assem::OperInstr(assem.str(), dst, right, nullptr));
+  return result;
 }
 
 temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
