@@ -183,6 +183,7 @@ public:
   temp::Temp *Munch(assem::InstrList &instr_list, std::string_view fs) override;
 };
 
+// In Tiger there is no structured l-valued
 class MemExp : public Exp {
 public:
   Exp *exp_;

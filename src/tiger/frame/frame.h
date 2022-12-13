@@ -12,12 +12,16 @@
 
 namespace frame {
 
+class Access;
+class Frame;
+
 class RegManager {
 public:
   RegManager() : temp_map_(temp::Map::Empty()) {}
 
   temp::Temp *GetRegister(int regno) { return regs_[regno]; }
 
+  // FIXME: TYPO!!!!! should be RSP
   /**
    * Get general-purpose registers except RSI
    * NOTE: returned temp list should be in the order of calling convention
@@ -64,21 +68,47 @@ public:
   [[nodiscard]] virtual temp::Temp *ReturnValue() = 0;
 
   temp::Map *temp_map_;
+
 protected:
   std::vector<temp::Temp *> regs_;
 };
 
+// var location in frame or reg
 class Access {
 public:
   /* TODO: Put your lab5 code here */
-  
+  Access() {}
+  virtual tree::Exp *ToExp(tree::Exp *framePtr)
+      const = 0; // Get the expression to access the variable
+  static Access *AllocLocal(Frame *frame, bool escape);
+
   virtual ~Access() = default;
   
 };
 
 class Frame {
   /* TODO: Put your lab5 code here */
+public:
+  // formals_ extracts a list of k “accesses”
+  // denoting the locations where the formal parameters will be kept at run time
+  // as seen from inside the callee
+  // first is static link
+  std::list<frame::Access *> *formals_; // The locations of all the formals ()
+  int offset_ = 0;                        // - frame size
+
+  // label at which the function’s machine code is to begin
+  temp::Label *name_ = nullptr; // indicate the return address (jump to according label)
+public:
+  Frame() {}
+  Frame(temp::Label *name) : offset_(0), name_(name) {}
+  ~Frame() {}
+  [[nodiscard]] virtual int Size() { return -offset_; }
+  [[nodiscard]] std::string GetLabel() { return name_->Name(); }
+  [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
+  virtual int AllocLocal() = 0;  // return an offset from the frame pointer
 };
+
+
 
 /**
  * Fragments
@@ -128,10 +158,14 @@ public:
   const std::list<Frag*> &GetList() { return frags_; }
 
 private:
-  std::list<Frag*> frags_;
+  std::list<Frag *> frags_;
 };
 
 /* TODO: Put your lab5 code here */
+tree::Exp *ExternalCall(std::string s, tree::ExpList *args);
+tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm);
+assem::InstrList *ProcEntryExit2(assem::InstrList *body);
+assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body);
 
 } // namespace frame
 

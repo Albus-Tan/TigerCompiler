@@ -67,6 +67,23 @@ public:
   void Append(Temp *t) { temp_list_.push_back(t); }
   [[nodiscard]] Temp *NthTemp(int i) const;
   [[nodiscard]] const std::list<Temp *> &GetList() const { return temp_list_; }
+  bool Contain(Temp *t) {
+    return std::any_of(temp_list_.cbegin(), temp_list_.cend(),
+                       [t](const auto x) { return t == x; });
+  }
+  TempList *Replace(Temp *oldTemp, Temp *newTemp) const {
+    TempList *res = new TempList();
+    for (Temp *temp : temp_list_) {
+      if (temp == oldTemp) {
+        res->temp_list_.push_back(newTemp);
+      } else {
+        res->temp_list_.push_back(temp);
+      }
+    }
+    return res;
+  }
+
+
 
 private:
   std::list<Temp *> temp_list_;

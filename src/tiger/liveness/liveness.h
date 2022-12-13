@@ -2,19 +2,20 @@
 #define TIGER_LIVENESS_LIVENESS_H_
 
 #include "tiger/codegen/assem.h"
-#include "tiger/frame/x64frame.h"
 #include "tiger/frame/temp.h"
+#include "tiger/frame/x64frame.h"
 #include "tiger/liveness/flowgraph.h"
 #include "tiger/util/graph.h"
+#include <set>
 
 namespace live {
 
 using INode = graph::Node<temp::Temp>;
-using INodePtr = graph::Node<temp::Temp>*;
+using INodePtr = graph::Node<temp::Temp> *;
 using INodeList = graph::NodeList<temp::Temp>;
-using INodeListPtr = graph::NodeList<temp::Temp>*;
+using INodeListPtr = graph::NodeList<temp::Temp> *;
 using IGraph = graph::Graph<temp::Temp>;
-using IGraphPtr = graph::Graph<temp::Temp>*;
+using IGraphPtr = graph::Graph<temp::Temp> *;
 
 class MoveList {
 public:
@@ -25,6 +26,10 @@ public:
     return move_list_;
   }
   void Append(INodePtr src, INodePtr dst) { move_list_.emplace_back(src, dst); }
+  void Union(INodePtr src, INodePtr dst) {
+    if (!Contain(src, dst))
+      move_list_.emplace_back(src, dst);
+  }
   bool Contain(INodePtr src, INodePtr dst);
   void Delete(INodePtr src, INodePtr dst);
   void Prepend(INodePtr src, INodePtr dst) {
@@ -67,6 +72,11 @@ private:
   void LiveMap();
   void InterfGraph();
 };
+
+std::set<temp::Temp *> ToSet(const std::list<temp::Temp *> &origin);
+temp::TempList *ToTempList(const std::set<temp::Temp *> &origin);
+bool SameSet(const std::set<temp::Temp *> &first,
+             const std::set<temp::Temp *> &second);
 
 } // namespace live
 
