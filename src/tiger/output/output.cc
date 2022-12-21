@@ -11,24 +11,52 @@ namespace output {
 void AssemGen::GenAssem(bool need_ra) {
   frame::Frag::OutputPhase phase;
 
+  // add for generate PointerMap frag in proc
+  frame::Frag *pm_frag = nullptr;
+  frame::Frags pm_frags;
+
   // Output proc
   phase = frame::Frag::Proc;
   fprintf(out_, ".text\n");
-  for (auto &&frag : frags->GetList())
-    frag->OutputAssem(out_, phase, need_ra);
+  for (auto &&frag : frags->GetList()){
+    pm_frag = nullptr;
+    frag->OutputAssem(out_, phase, &pm_frag, need_ra);
+    if(pm_frag != nullptr) pm_frags.PushBack(pm_frag);
+  }
 
   // Output string
   phase = frame::Frag::String;
   fprintf(out_, ".section .rodata\n");
   for (auto &&frag : frags->GetList())
-    frag->OutputAssem(out_, phase, need_ra);
+    frag->OutputAssem(out_, phase, &pm_frag, need_ra);
+
+  // Output pointer map
+  phase = frame::Frag::PointerMap;
+  fprintf(out_, ".global GLOBAL_GC_ROOTS\n");
+  fprintf(out_, ".data\n");
+  fprintf(out_, "GLOBAL_GC_ROOTS:\n");
+  auto last = pm_frags.GetList().back();
+  for (auto &&frag : pm_frags.GetList()){
+    frag->OutputAssem(out_, phase, &pm_frag, (frag == last));
+  }
+
 }
 
 } // namespace output
 
 namespace frame {
 
-void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
+void PointerMapFrag::OutputAssem(FILE *out, Frag::OutputPhase phase,
+                                 Frag **new_frag, bool is_last) const {
+  if (phase != PointerMap)
+    return;
+
+  TigerLog("-------====Pointer Map Frag=====-----\n");
+  pointer_map_generator_->Print(out, is_last);
+}
+
+void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,
+                           bool need_ra) const {
   std::unique_ptr<canon::Traces> traces;
   std::unique_ptr<cg::AssemInstr> assem_instr;
   std::unique_ptr<ra::Result> allocation;
@@ -63,7 +91,8 @@ void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
     traces = canon.TransferTraces();
   }
 
-  temp::Map *color = temp::Map::LayerMap(reg_manager->temp_map_, temp::Map::Name());
+  temp::Map *color =
+      temp::Map::LayerMap(reg_manager->temp_map_, temp::Map::Name());
   {
     // Lab 5: code generation
     TigerLog("-------====Code generate=====-----\n");
@@ -74,7 +103,7 @@ void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
   }
 
   assem::InstrList *il = assem_instr.get()->GetInstrList();
-  
+
   if (need_ra) {
     // Lab 6: register allocation
     TigerLog("----====Register allocate====-----\n");
@@ -85,11 +114,20 @@ void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
     color = temp::Map::LayerMap(reg_manager->temp_map_, allocation->coloring_);
   }
 
+#ifdef GC
+  {
+    // Lab 7: garbage collection
+    gc::Roots roots(frame_, il);
+    roots.GenPointerMaps();
+    *new_frag = new PointerMapFrag(roots.GetPointerMapGenerator());
+  }
+#endif
+
   TigerLog("-------====Output assembly for %s=====-----\n",
            frame_->name_->Name().data());
 
   assem::Proc *proc = frame::ProcEntryExit3(frame_, il);
-  
+
   std::string proc_name = frame_->GetLabel();
 
   fprintf(out, ".globl %s\n", proc_name.data());
@@ -103,7 +141,8 @@ void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
   fprintf(out, ".size %s, .-%s\n", proc_name.data(), proc_name.data());
 }
 
-void StringFrag::OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const {
+void StringFrag::OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,
+                             bool need_ra) const {
   // When generating string fragment, do not output proc assembly
   if (phase != String)
     return;

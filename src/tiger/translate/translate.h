@@ -65,7 +65,7 @@ public:
   Access(Level *level, frame::Access *access)
       : level_(level), access_(access) {}
 
-  static Access *AllocLocal(Level *level, bool escape);
+  static Access *AllocLocal(Level *level, bool escape, bool store_pointer);
 
   // get the exp to access the variable, consider static links
   tree::Exp *ToExp(Level *currentLevel);
@@ -78,7 +78,7 @@ public:
   Level *parent_;
 
   Level(Level *parent, temp::Label *name,
-        std::list<bool> formals);
+        std::list<bool> formals, std::list<bool> store_pointers);
   Level(frame::Frame *frame, Level *parent) : frame_(frame), parent_(parent) {}
 
   std::list<Access *> *Formals();

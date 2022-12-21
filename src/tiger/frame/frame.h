@@ -1,14 +1,20 @@
 #ifndef TIGER_FRAME_FRAME_H_
 #define TIGER_FRAME_FRAME_H_
 
+#define GC
+
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "tiger/codegen/assem.h"
 #include "tiger/frame/temp.h"
 #include "tiger/translate/tree.h"
-#include "tiger/codegen/assem.h"
 
+namespace gc {
+class PointerMapGenerator;
+}
 
 namespace frame {
 
@@ -80,10 +86,9 @@ public:
   Access() {}
   virtual tree::Exp *ToExp(tree::Exp *framePtr)
       const = 0; // Get the expression to access the variable
-  static Access *AllocLocal(Frame *frame, bool escape);
-
+  static Access *AllocLocal(Frame *frame, bool escape, bool store_pointer);
+  virtual void SetStorePointer(bool store_pointer) = 0;
   virtual ~Access() = default;
-  
 };
 
 class Frame {
@@ -94,21 +99,24 @@ public:
   // as seen from inside the callee
   // first is static link
   std::list<frame::Access *> *formals_; // The locations of all the formals ()
-  int offset_ = 0;                        // - frame size
+  int offset_ = 0;                      // - frame size
+
+  // add for GC, denoting all pointers
+  std::list<frame::Access *> *pointers_;
 
   // label at which the function’s machine code is to begin
-  temp::Label *name_ = nullptr; // indicate the return address (jump to according label)
+  temp::Label *name_ =
+      nullptr; // indicate the return address (jump to according label)
 public:
   Frame() {}
   Frame(temp::Label *name) : offset_(0), name_(name) {}
   ~Frame() {}
   [[nodiscard]] virtual int Size() { return -offset_; }
   [[nodiscard]] std::string GetLabel() { return name_->Name(); }
-  [[nodiscard]] std::list<frame::Access *> *GetFormals() {return formals_;}
-  virtual int AllocLocal() = 0;  // return an offset from the frame pointer
+  [[nodiscard]] std::list<frame::Access *> *GetFormals() { return formals_; }
+  virtual int AllocLocal() = 0; // return an offset from the frame pointer
+  virtual std::vector<int> GetPointerOffsets() = 0;
 };
-
-
 
 /**
  * Fragments
@@ -118,16 +126,25 @@ class Frag {
 public:
   virtual ~Frag() = default;
 
-  enum OutputPhase {
-    Proc,
-    String,
-  };
+  enum OutputPhase { Proc, String, PointerMap };
 
   /**
    *Generate assembly for main program
    * @param out FILE object for output assembly file
    */
-  virtual void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const = 0;
+  virtual void OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,
+                           bool need_ra) const = 0;
+};
+
+class PointerMapFrag : public Frag {
+public:
+  gc::PointerMapGenerator *pointer_map_generator_;
+
+  explicit PointerMapFrag(gc::PointerMapGenerator *pointer_map_generator)
+      : pointer_map_generator_(pointer_map_generator) {}
+
+  void OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,
+                   bool is_last) const override;
 };
 
 class StringFrag : public Frag {
@@ -138,7 +155,7 @@ public:
   StringFrag(temp::Label *label, std::string str)
       : label_(label), str_(std::move(str)) {}
 
-  void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const override;
+  void OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag, bool need_ra) const override;
 };
 
 class ProcFrag : public Frag {
@@ -148,14 +165,14 @@ public:
 
   ProcFrag(tree::Stm *body, Frame *frame) : body_(body), frame_(frame) {}
 
-  void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const override;
+  void OutputAssem(FILE *out, OutputPhase phase,  Frag **new_frag,bool need_ra) const override;
 };
 
 class Frags {
 public:
   Frags() = default;
   void PushBack(Frag *frag) { frags_.emplace_back(frag); }
-  const std::list<Frag*> &GetList() { return frags_; }
+  const std::list<Frag *> &GetList() { return frags_; }
 
 private:
   std::list<Frag *> frags_;

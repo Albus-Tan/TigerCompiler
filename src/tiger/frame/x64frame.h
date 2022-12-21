@@ -7,6 +7,17 @@
 
 #include "tiger/frame/frame.h"
 
+//#define DEBUG_FRAME
+
+#ifdef DEBUG_FRAME
+#define DBG_FRAME(format, ...) fprintf(stderr, \
+"[DEBUG_FRAME](%s, %s(), Line %d): " \
+, __FILE__, __FUNCTION__, __LINE__);     \
+fprintf(stdout, format"\r\n", ##__VA_ARGS__)
+#else
+#define DBG_FRAME(format, ...)  do {} while (0)
+#endif
+
 namespace frame {
 class X64RegManager : public RegManager {
   /* TODO: Put your lab5 code here */
@@ -89,12 +100,14 @@ public:
 class InFrameAccess : public Access {
 public:
   int offset;
-
-  explicit InFrameAccess(int offset) : offset(offset) {}
+  bool store_pointer;
+  explicit InFrameAccess(int offset, bool store_pointer)
+      : offset(offset), store_pointer(store_pointer) {}
   /* TODO: Put your lab5 code here */
 
   // return off(fp) (for visiting var on stack)
   tree::Exp *ToExp(tree::Exp *framePtr) const override;
+  void SetStorePointer(bool store_pointer_) override;
 };
 
 // visiting var in reg
@@ -104,15 +117,17 @@ public:
   explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
   /* TODO: Put your lab5 code here */
   tree::Exp *ToExp(tree::Exp *framePtr) const override;
+  void SetStorePointer(bool store_pointer) override;
 };
 
 class X64Frame : public Frame {
   /* TODO: Put your lab5 code here */
 public:
-  X64Frame(temp::Label *name, std::list<bool> formals);
+  X64Frame(temp::Label *name, std::list<bool> formals, std::list<bool> store_pointer);
   int AllocLocal();
   std::list<frame::Access *> *Formals();
   int Size() override;
+  std::vector<int> GetPointerOffsets() override;
 };
 
 } // namespace frame

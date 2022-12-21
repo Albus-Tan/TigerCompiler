@@ -2,20 +2,20 @@
 
 #include "tiger/output/logger.h"
 
-//#define REG_ALLOC_LOG(fmt, args...)                                            \
-//  do {                                                                         \
-//  } while (0);
-
-#define DBG_GRAPH
-
-#define PRINT_SPILLED_NODES
-
 #define REG_ALLOC_LOG(fmt, args...)                                            \
   do {                                                                         \
-    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
-           __FUNCTION__, ##args);                                              \
-    fflush(stdout);                                                            \
   } while (0);
+
+//#define DBG_GRAPH
+
+//#define PRINT_SPILLED_NODES
+
+//#define REG_ALLOC_LOG(fmt, args...)                                            \
+//  do {                                                                         \
+//    printf("[REG_ALLOC_LOG][%s:%d:%s] " fmt "\n", __FILE__, __LINE__,          \
+//           __FUNCTION__, ##args);                                              \
+//    fflush(stdout);                                                            \
+//  } while (0);
 
 extern frame::RegManager *reg_manager;
 
@@ -462,12 +462,12 @@ void RegAllocator::RewriteProgram() {
   no_spill_temps->Clear();
   for (live::INodePtr v : spilled_nodes->GetList()) {
     // Allocate memory locations for each v∈spilledNodes
+    // FIXME
     frame::InFrameAccess *access = static_cast<frame::InFrameAccess *>(
-        frame::Access::AllocLocal(frame_, true));
+        frame::Access::AllocLocal(frame_, true, false));
     // Create a new temporary vi for each definition and each use
     temp::Temp *old_temp = v->NodeInfo();
     temp::Temp *vi = temp::TempFactory::NewTemp();
-    // TODO:
 
     auto new_instr_list = new assem::InstrList();
     // In the program (instructions), insert a store after each

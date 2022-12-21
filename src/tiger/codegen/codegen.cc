@@ -57,17 +57,18 @@ void CodeGen::Codegen() {
   fs_ = frame_->GetLabel() + "_framesize"; // // Frame size label_
   auto instr_list = new assem::InstrList();
 
-//    // Save callee-saved registers
-//    auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
-//    instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-//                                            new temp::TempList(pos), nullptr,
-//                                            nullptr));
-//    instr_list->Append(
-//        new assem::OperInstr("addq $" + std::to_string(frame_->offset_) + ",`d0",
-//                             new temp::TempList(pos), nullptr, nullptr));
-//    for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
-//      PushRegToPos(*instr_list, pos, callee_save_reg);
-//    }
+  //    // Save callee-saved registers
+  //    auto pos = reg_manager->GetRegister(frame::X64RegManager::X64Reg::RAX);
+  //    instr_list->Append(new assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+  //                                            new temp::TempList(pos),
+  //                                            nullptr, nullptr));
+  //    instr_list->Append(
+  //        new assem::OperInstr("addq $" + std::to_string(frame_->offset_) +
+  //        ",`d0",
+  //                             new temp::TempList(pos), nullptr, nullptr));
+  //    for (auto callee_save_reg : reg_manager->CalleeSaves()->GetList()) {
+  //      PushRegToPos(*instr_list, pos, callee_save_reg);
+  //    }
 
   // Init FP with SP
   // FP = SP + fs
@@ -81,22 +82,22 @@ void CodeGen::Codegen() {
     stm->Munch(*instr_list, fs_);
   }
 
-//    // Restore callee-saved registers
-//    auto pos_rbx =
-//    reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX); auto li =
-//    reg_manager->CalleeSaves()->GetList(); instr_list->Append(new
-//    assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
-//                                            new temp::TempList(pos_rbx),
-//                                            nullptr, nullptr));
-//    instr_list->Append(new assem::OperInstr(
-//        "addq $" +
-//            std::to_string(frame_->offset_ +
-//                           li.size() * reg_manager->WordSize()) +
-//            ", `d0",
-//        new temp::TempList(pos_rbx), nullptr, nullptr));
-//    for (auto callee_save_reg : li) {
-//      PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
-//    }
+  //    // Restore callee-saved registers
+  //    auto pos_rbx =
+  //    reg_manager->GetRegister(frame::X64RegManager::X64Reg::RBX); auto li =
+  //    reg_manager->CalleeSaves()->GetList(); instr_list->Append(new
+  //    assem::OperInstr("leaq " + fs_ + "(%rsp), `d0",
+  //                                            new temp::TempList(pos_rbx),
+  //                                            nullptr, nullptr));
+  //    instr_list->Append(new assem::OperInstr(
+  //        "addq $" +
+  //            std::to_string(frame_->offset_ +
+  //                           li.size() * reg_manager->WordSize()) +
+  //            ", `d0",
+  //        new temp::TempList(pos_rbx), nullptr, nullptr));
+  //    for (auto callee_save_reg : li) {
+  //      PopRegFromPos(*instr_list, pos_rbx, callee_save_reg);
+  //    }
 
   assem_instr_ =
       std::make_unique<AssemInstr>(frame::ProcEntryExit2(instr_list));
@@ -289,7 +290,8 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
                                            new temp::TempList(rax), nullptr));
     instr_list.Append(new assem::OperInstr(
         "idivq `s0", new temp::TempList({rax, rdx}),
-        new temp::TempList({right_->Munch(instr_list, fs), rax, rdx}), nullptr));
+        new temp::TempList({right_->Munch(instr_list, fs), rax, rdx}),
+        nullptr));
     instr_list.Append(new assem::MoveInstr(
         "movq `s0, `d0", new temp::TempList(reg), new temp::TempList(rax)));
     return reg;
@@ -392,6 +394,14 @@ temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   instr_list.Append(new assem::OperInstr(
       "callq " + (static_cast<NameExp *>(fun_))->name_->Name(),
       reg_manager->CallerSaves(), arg_regs, nullptr));
+
+#ifdef GC
+  // add label after call (return address label)
+  temp::Label *return_addr_label_ = temp::LabelFactory::NewLabel();
+  instr_list.Append(new assem::LabelInstr(
+      temp::LabelFactory::LabelString(return_addr_label_), return_addr_label_));
+#endif
+
   // get return value
   temp::Temp *return_temp = temp::TempFactory::NewTemp();
   instr_list.Append(

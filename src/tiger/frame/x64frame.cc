@@ -1,6 +1,6 @@
-#include <sstream>
 #include "tiger/frame/x64frame.h"
 #include "frame.h"
+#include <sstream>
 
 extern frame::RegManager *reg_manager;
 
@@ -12,10 +12,19 @@ int X64Frame::AllocLocal() {
   return offset_;
 }
 
-X64Frame::X64Frame(temp::Label *name, std::list<bool> formals) : Frame(name) {
+X64Frame::X64Frame(temp::Label *name, std::list<bool> formals,
+                   std::list<bool> store_pointer)
+    : Frame(name) {
   formals_ = new std::list<frame::Access *>();
+  pointers_ = new std::list<frame::Access *>();
+  auto it = store_pointer.begin();
   for (auto formal_escape : formals) {
+#ifdef GC
+    formals_->push_back(frame::Access::AllocLocal(this, formal_escape, (*it)));
+    ++it;
+#else
     formals_->push_back(frame::Access::AllocLocal(this, formal_escape));
+#endif
   }
 }
 
@@ -24,10 +33,26 @@ std::list<frame::Access *> *X64Frame::Formals() { return nullptr; }
 int X64Frame::Size() {
   const int arg_num = formals_->size();
   const int arg_reg_num = reg_manager->ArgRegs()->GetList().size();
-  return -offset_ + std::max(arg_num - arg_reg_num, 0) * reg_manager->WordSize();
-//  return -offset_;
+  return -offset_ +
+         std::max(arg_num - arg_reg_num, 0) * reg_manager->WordSize();
+  //  return -offset_;
 }
 
+std::vector<int> X64Frame::GetPointerOffsets() {
+  DBG_FRAME("START");
+  std::vector<int> pointer_offsets;
+  DBG_FRAME("access num %zu", pointers_->size());
+  for (frame::Access *access : *pointers_) {
+    if (typeid(*access) == typeid(frame::InFrameAccess)) {
+      auto frame_access = static_cast<frame::InFrameAccess *>(access);
+      DBG_FRAME("access offset %d in frame, store pointer %d", frame_access->offset, frame_access->store_pointer);
+      if (frame_access->store_pointer) {
+        pointer_offsets.push_back(frame_access->offset);
+      }
+    }
+  }
+  return pointer_offsets;
+}
 
 /* TODO: Put your lab5 code here */
 temp::TempList *X64RegManager::Registers() {
@@ -167,10 +192,9 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   temp::TempList *callee_saved = new temp::TempList();
   for (auto reg : reg_manager->CalleeSaves()->GetList()) {
     temp::Temp *dst = temp::TempFactory::NewTemp();
-    save_callee_stm =
-        new tree::SeqStm(
-        save_callee_stm, new tree::MoveStm(new tree::TempExp(dst),
-                                                     new tree::TempExp(reg)));
+    save_callee_stm = new tree::SeqStm(
+        save_callee_stm,
+        new tree::MoveStm(new tree::TempExp(dst), new tree::TempExp(reg)));
     callee_saved->Append(dst);
   }
 
@@ -178,7 +202,7 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   auto arg_reg_num = reg_manager->ArgRegs()->GetList().size();
   // num of arg of proc
   auto arg_num = frame->formals_->size();
-  int formal_idx = 0;  // current processing formal index
+  int formal_idx = 0; // current processing formal index
   tree::SeqStm *view_shift = nullptr, *tail = nullptr;
   for (Access *formal : *(frame->formals_)) {
     tree::Exp *dst =
@@ -215,8 +239,9 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   // Restore callee-saved registers
   auto saved = callee_saved->GetList().cbegin();
   for (auto reg : reg_manager->CalleeSaves()->GetList()) {
-    res_stm = new tree::SeqStm(res_stm, new tree::MoveStm(new tree::TempExp(reg),
-                                                  new tree::TempExp(*saved)));
+    res_stm =
+        new tree::SeqStm(res_stm, new tree::MoveStm(new tree::TempExp(reg),
+                                                    new tree::TempExp(*saved)));
     ++saved;
   }
   delete callee_saved;
@@ -242,18 +267,18 @@ assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   prologue << ".set " << name << "_framesize, " << rsp_offset << std::endl;
   prologue << name << ":" << std::endl;
 
-  if(frame->name_->Name() == "tigermain") {
+  if (frame->name_->Name() == "tigermain") {
     prologue << "subq $8, %rsp" << std::endl;
     prologue << "movq %rbp, (%rsp)" << std::endl;
   }
-  
+
   prologue << "subq $" << rsp_offset << ", %rsp" << std::endl;
 
   // epilog part
   std::stringstream epilogue;
   epilogue << "addq $" << rsp_offset << ", %rsp" << std::endl;
 
-  if(frame->name_->Name() == "tigermain") {
+  if (frame->name_->Name() == "tigermain") {
     epilogue << "movq (%rsp), %rbp" << std::endl;
     epilogue << "addq $8, %rsp" << std::endl;
   }
@@ -262,11 +287,23 @@ assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   return new assem::Proc(prologue.str(), body, epilogue.str());
 }
 
-Access *Access::AllocLocal(Frame *frame, bool escape) {
+Access *Access::AllocLocal(Frame *frame, bool escape, bool store_pointer) {
+#ifdef GC
+  if (!escape && store_pointer) {
+    // for pointer, alloc in frame and set mark
+    auto offset = frame->AllocLocal();
+    DBG_FRAME("Access::AllocLocal store_pointer = true, alloc in frame, offset %d", offset);
+    auto frame_access = new frame::InFrameAccess(offset, true);
+    frame->pointers_->push_back(frame_access);
+    return frame_access;
+  }
+#endif
   if (escape) {
     //  Frame::AllocLocal(TRUE) Returns an InFrameAccess with an offset from the
     //  frame pointer
-    return new frame::InFrameAccess(frame->AllocLocal());
+    auto frame_access =  new frame::InFrameAccess(frame->AllocLocal(), store_pointer);
+    if(store_pointer) frame->pointers_->push_back(frame_access);
+    return frame_access;
   } else {
     //  Frame::AllocLocal(FALSE) Returns a register InRegAccess(t481)
     return new frame::InRegAccess(temp::TempFactory::NewTemp());
@@ -278,9 +315,17 @@ tree::Exp *InFrameAccess::ToExp(tree::Exp *framePtr) const {
   return new tree::MemExp(new tree::BinopExp(
       tree::BinOp::PLUS_OP, new tree::ConstExp(offset), framePtr));
 }
+void InFrameAccess::SetStorePointer(bool store_pointer_) {
+  this->store_pointer = store_pointer_;
+}
 
 tree::Exp *InRegAccess::ToExp(tree::Exp *framePtr) const {
   // visiting var in reg
   return new tree::TempExp(reg);
+}
+void InRegAccess::SetStorePointer(bool store_pointer_) {
+  // FIXME
+  if (store_pointer_)
+    assert(0);
 }
 } // namespace frame

@@ -13,8 +13,9 @@ extern frame::RegManager *reg_manager;
 
 namespace tr {
 
-Access *Access::AllocLocal(Level *level, bool escape) {
-  return new Access(level, frame::Access::AllocLocal(level->frame_, escape));
+Access *Access::AllocLocal(Level *level, bool escape, bool store_pointer) {
+  return new Access(
+      level, frame::Access::AllocLocal(level->frame_, escape, store_pointer));
 }
 
 tree::Exp *Access::ToExp(Level *currentLevel) {
@@ -143,7 +144,7 @@ void ProgTr::Translate() {
   /* TODO: Put your lab5 code here */
   temp::Label *main_label_ = temp::LabelFactory::NamedLabel("tigermain");
   main_level_ =
-      std::make_unique<Level>(nullptr, main_label_, std::list<bool>());
+      std::make_unique<Level>(nullptr, main_label_, std::list<bool>(), std::list<bool>());
 
   tr::ExpAndTy *main =
       absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(),
@@ -212,17 +213,28 @@ std::list<Access *> *Level::Formals() {
 
 // tr::Level::NewLevel adds an extra element to the formal parameter list and
 // calls formals.push_front(true); NewFrame(label, formals);
-Level::Level(Level *parent, temp::Label *name, std::list<bool> formals)
+Level::Level(Level *parent, temp::Label *name, std::list<bool> formals, std::list<bool> store_pointers)
     : parent_(parent) {
   // add formal parameter for static link
   formals.push_front(true);
+#ifdef GC
+  store_pointers.push_front(false);
+#endif
   // allocate new frame
-  frame_ = new frame::X64Frame(name, formals);
+  frame_ = new frame::X64Frame(name, formals, store_pointers);
 }
 
 } // namespace tr
 
 namespace absyn {
+
+#ifdef GC
+// to check whether type is pointer (is record or array)
+bool IsPointer(type::Ty *type) {
+  return typeid(*(type->ActualTy())) == typeid(type::RecordTy) ||
+         typeid(*(type->ActualTy())) == typeid(type::ArrayTy);
+}
+#endif
 
 tr::ExpAndTy *AbsynTree::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,
@@ -519,8 +531,8 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                          : new tree::ConstExp(0);
           // string_equal return 1 for equal, 0 for not
           cjump_stm = new tree::CjumpStm(
-              tree::RelOp::EQ_OP, frame::ExternalCall("string_equal", args), expected,
-              nullptr, nullptr);
+              tree::RelOp::EQ_OP, frame::ExternalCall("string_equal", args),
+              expected, nullptr, nullptr);
         } else {
           cjump_stm = new tree::CjumpStm(rel_op, left->exp_->UnEx(),
                                          right->exp_->UnEx(), nullptr, nullptr);
@@ -576,10 +588,20 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     // creates an n-word area (CONST n*w)
     args->Append(new tree::ConstExp((recordTy->fields_->GetList().size()) *
                                     reg_manager->WordSize()));
+#ifdef GC
+    // Call an external memory-allocation function
+    // runtime.cc: int *alloc_record(int size, struct string *descriptor)
+    // type name + _DESCRIPTOR
+    args->Append(new tree::NameExp(
+        temp::LabelFactory::NamedLabel(typ_->Name() + "_DESCRIPTOR")));
+    tree::MoveStm *left_move_stm = new tree::MoveStm(
+        new tree::TempExp(r), frame::ExternalCall("alloc_record", args));
+#else
     // Call an external memory-allocation function
     // runtime.c: int *alloc_record(int size)
     tree::MoveStm *left_move_stm = new tree::MoveStm(
         new tree::TempExp(r), frame::ExternalCall("alloc_record", args));
+#endif
 
     tree::SeqStm *initialization_list_head = nullptr;
     tree::SeqStm *left_init_seq_stm =
@@ -873,8 +895,15 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   // add id (readonly) to venv
   venv->BeginScope();
+#ifdef GC
+  venv->Enter(var_,
+              new env::VarEntry(tr::Access::AllocLocal(level, false, false),
+                                type::IntTy::Instance(), true));
+#else
   venv->Enter(var_, new env::VarEntry(tr::Access::AllocLocal(level, false),
                                       type::IntTy::Instance(), true));
+#endif
+
   tr::ExpAndTy *lo_exp_and_ty =
       lo_->Translate(venv, tenv, level, label, errormsg);
   tr::ExpAndTy *hi_exp_and_ty =
@@ -1175,8 +1204,12 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     DBG("Start build escape list");
     // build escape list of function formal parameters
     std::list<bool> formal_escapes;
+    std::list<bool> store_pointers;
     for (Field *param : function->params_->GetList()) {
       formal_escapes.push_back(param->escape_);
+#ifdef GC
+      store_pointers.push_back(IsPointer(tenv->Look(param->typ_)));
+#endif
     }
 
     DBG("Creating new nesting level");
@@ -1184,7 +1217,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     // by calling tr::Level::NewLevel()
     // Semant keeps this level in its FunEntry
     tr::Level *function_level =
-        new tr::Level(level, entry->label_, formal_escapes);
+        new tr::Level(level, entry->label_, formal_escapes, store_pointers);
     // Suppose function f(x,y) is nesting inside function g (Level for g is
     // levelg) call tr::Level::NewLevel(levelg, f, {false, false})
 
@@ -1201,6 +1234,11 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     auto formal_ty = formals_ty->GetList().cbegin();
     auto access = access_list->cbegin();
     for (absyn::Field *param : function->params_->GetList()) {
+
+#ifdef GC
+      (*access)->access_->SetStorePointer(IsPointer(tenv->Look(param->typ_)));
+#endif
+
       venv->Enter(param->name_, new env::VarEntry(*access, *formal_ty));
       ++formal_ty;
       ++access;
@@ -1254,8 +1292,20 @@ tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       return new tr::NxExp(tr::getVoidStm());
     }
 
+#ifdef GC
+    DBG_FRAME("Var name %s, is pointer %d", var_->Name().data(), IsPointer(init_ty));
+    tr::Access *access =
+        tr::Access::AllocLocal(level, escape_, IsPointer(init_ty));
+#else
     tr::Access *access = tr::Access::AllocLocal(level, escape_);
+#endif
+
     venv->Enter(var_, new env::VarEntry(access, type_id));
+
+#ifdef GC
+    access->access_->SetStorePointer(IsPointer(init_ty));
+#endif
+
     return new tr::NxExp(new tree::MoveStm(
         access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer())),
         init_exp_and_ty->exp_->UnEx()));
@@ -1269,9 +1319,18 @@ tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     }
     // creates a “new location” tr::Access for each variable at level level
     // by calling tr::Access::AllocLocal(level, escape_);
+#ifdef GC
+    DBG_FRAME("Var name %s, is pointer %d", var_->Name().data(), IsPointer(init_ty));
+    tr::Access *access =
+        tr::Access::AllocLocal(level, escape_, IsPointer(init_ty));
+#else
     tr::Access *access = tr::Access::AllocLocal(level, escape_);
+#endif
     // Semant records this tr::Access in its VarEntry
     venv->Enter(var_, new env::VarEntry(access, init_ty->ActualTy()));
+#ifdef GC
+    access->access_->SetStorePointer(IsPointer(init_ty));
+#endif
     return new tr::NxExp(new tree::MoveStm(
         access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer())),
         init_exp_and_ty->exp_->UnEx()));
@@ -1337,6 +1396,39 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       tmp = next;
     }
   }
+
+#ifdef GC
+  for (NameAndTy *type : types_->GetList()) {
+    // find name_ in tenv
+    type::NameTy *name_ty =
+        static_cast<type::NameTy *>(tenv->Look(type->name_));
+
+    // add frag to .data segmant for new record type
+    if (typeid(*name_ty->ty_->ActualTy()) == typeid(type::RecordTy)) {
+      type::RecordTy *record_ty = static_cast<type::RecordTy *>(name_ty->ty_);
+
+      // Lable: "typename_DESCRIPTOR"
+      std::string descriptor_label = name_ty->sym_->Name() + "_DESCRIPTOR";
+      std::string descriptor_type_str;
+
+      // check fields for pointers, if has pointer, set 1 for according pos;
+      // else set 0
+      for (const type::Field *field : record_ty->fields_->GetList()) {
+        if (IsPointer(field->ty_)) {
+          descriptor_type_str += "1";
+        } else {
+          descriptor_type_str += "0";
+        }
+      }
+
+      // add to frag
+      frags->PushBack(new frame::StringFrag(
+          temp::LabelFactory::NamedLabel(descriptor_label),
+          descriptor_type_str));
+    }
+  }
+#endif
+
   return tr::getVoidExp();
 }
 

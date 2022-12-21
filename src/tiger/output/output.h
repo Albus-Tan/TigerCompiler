@@ -9,6 +9,7 @@
 #include "tiger/codegen/codegen.h"
 #include "tiger/frame/frame.h"
 #include "tiger/regalloc/regalloc.h"
+#include "tiger/runtime/gc/roots/roots.h"
 
 namespace output {
 
