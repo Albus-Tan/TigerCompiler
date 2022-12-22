@@ -139,12 +139,12 @@ public:
 class PointerMapFrag : public Frag {
 public:
   gc::PointerMapGenerator *pointer_map_generator_;
-
   explicit PointerMapFrag(gc::PointerMapGenerator *pointer_map_generator)
       : pointer_map_generator_(pointer_map_generator) {}
+  void PushBackGlobalRoots(gc::PointerMapGenerator *append_content);
 
   void OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,
-                   bool is_last) const override;
+                   bool need_ra) const override;
 };
 
 class StringFrag : public Frag {
@@ -173,7 +173,7 @@ public:
   Frags() = default;
   void PushBack(Frag *frag) { frags_.emplace_back(frag); }
   const std::list<Frag *> &GetList() { return frags_; }
-
+  PointerMapFrag *MergeForPointerLists();
 private:
   std::list<Frag *> frags_;
 };

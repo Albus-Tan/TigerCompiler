@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include "tiger/frame/frame.h"
 #include "tiger/output/logger.h"
 
 extern frame::RegManager *reg_manager;
@@ -18,10 +19,11 @@ void AssemGen::GenAssem(bool need_ra) {
   // Output proc
   phase = frame::Frag::Proc;
   fprintf(out_, ".text\n");
-  for (auto &&frag : frags->GetList()){
+  for (auto &&frag : frags->GetList()) {
     pm_frag = nullptr;
     frag->OutputAssem(out_, phase, &pm_frag, need_ra);
-    if(pm_frag != nullptr) pm_frags.PushBack(pm_frag);
+    if (pm_frag != nullptr)
+      pm_frags.PushBack(pm_frag);
   }
 
   // Output string
@@ -35,11 +37,8 @@ void AssemGen::GenAssem(bool need_ra) {
   fprintf(out_, ".global GLOBAL_GC_ROOTS\n");
   fprintf(out_, ".data\n");
   fprintf(out_, "GLOBAL_GC_ROOTS:\n");
-  auto last = pm_frags.GetList().back();
-  for (auto &&frag : pm_frags.GetList()){
-    frag->OutputAssem(out_, phase, &pm_frag, (frag == last));
-  }
-
+  pm_frag = pm_frags.MergeForPointerLists();
+  pm_frag->OutputAssem(out_, phase, &pm_frag, need_ra);
 }
 
 } // namespace output
@@ -47,12 +46,32 @@ void AssemGen::GenAssem(bool need_ra) {
 namespace frame {
 
 void PointerMapFrag::OutputAssem(FILE *out, Frag::OutputPhase phase,
-                                 Frag **new_frag, bool is_last) const {
+                                 Frag **new_frag, bool need_ra) const {
   if (phase != PointerMap)
     return;
 
   TigerLog("-------====Pointer Map Frag=====-----\n");
-  pointer_map_generator_->Print(out, is_last);
+  pointer_map_generator_->Print(out);
+}
+void PointerMapFrag::PushBackGlobalRoots(
+    gc::PointerMapGenerator *append_content) {
+  pointer_map_generator_->PushBackGlobalRoots(append_content->GetGlobalRoots());
+}
+
+PointerMapFrag *Frags::MergeForPointerLists() {
+  PointerMapFrag *pointer_map_frag =
+      static_cast<PointerMapFrag *>(frags_.front());
+  frags_.pop_front();
+  if (frags_.empty()) {
+    pointer_map_frag->pointer_map_generator_->LinkPointerMaps();
+    return pointer_map_frag;
+  }
+  for (auto f : frags_) {
+    pointer_map_frag->PushBackGlobalRoots(
+        static_cast<PointerMapFrag *>(f)->pointer_map_generator_);
+  }
+  pointer_map_frag->pointer_map_generator_->LinkPointerMaps();
+  return pointer_map_frag;
 }
 
 void ProcFrag::OutputAssem(FILE *out, OutputPhase phase, Frag **new_frag,

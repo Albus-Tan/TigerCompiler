@@ -45,6 +45,13 @@ private:
   std::vector<gc::PointerMap> global_roots;
 public:
   PointerMapGenerator(){}
+  std::vector<gc::PointerMap> &GetGlobalRoots(){
+    return global_roots;
+  }
+
+  void PushBackGlobalRoots(const std::vector<gc::PointerMap> &append_content){
+    global_roots.insert(global_roots.end(), append_content.begin(), append_content.end());
+  }
 
   // Examples of register maps in .data (x64)
 
@@ -68,11 +75,10 @@ public:
   //.global GLOBAL_ROOTS
 
   // output pointer map in .data section
-  void Print(FILE *out, bool is_last) {
+  void Print(FILE *out) {
     GC_LOG("output pointer map in .data section")
     // last entry
-    if (is_last)
-      global_roots.back().next = "0";
+    global_roots.back().next = "0";
     // Output pointerMap
     for (PointerMap map : global_roots) {
       std::string out_str;
@@ -151,7 +157,6 @@ public:
         pointer_map_generator_->PushBackPointerMap(pointer_map);
       }
     }
-    pointer_map_generator_->LinkPointerMaps();
   };
 };
 

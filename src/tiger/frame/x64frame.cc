@@ -328,4 +328,5 @@ void InRegAccess::SetStorePointer(bool store_pointer_) {
   if (store_pointer_)
     assert(0);
 }
+
 } // namespace frame
