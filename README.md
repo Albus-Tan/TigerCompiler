@@ -1,4 +1,7 @@
 # Tiger Compiler Labs in C++
+## Academic Integrity WARNING
+
+The code has been added to the checking library of SJTU SE, so please do not copy it.
 
 ## Contents
 
