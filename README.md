@@ -1,4 +1,6 @@
-# Tiger Compiler Labs in C++
+# Tiger Compiler
+## Introduction
+A compiler for Tiger language includes lexical analysis using flexc++, parsing using Bisonc++, type checking, building abstract syntax tree, instruction selection, register allocation and garbage collection, can produce complete assembly code on X86-64 CPU.
 ## Academic Integrity WARNING
 
 The code has been added to the checking library of SJTU SE, so please do not copy it.
